@@ -1,0 +1,22 @@
+# Node
+node_modules/
+npm-debug.log
+
+# Env
+.env
+
+# Prisma SQLite local
+dev.db
+*.db
+*.db-journal
+
+# Build
+dist/
+build/
+
+# VS Code
+.vscode/
+
+# Logs
+logs/
+*.log
