@@ -1,44 +1,82 @@
-# AGROMARKT
+#**AgroMarkt**
 
-AGROMARKT é uma plataforma web para compra e venda de produtos agrícolas.  
-O sistema permite que vendedores/agricultores publiquem produtos, compradores façam encomendas e administradores façam a gestão da plataforma.
+Sistema web para compra e venda de produtos agrícolas.
 
-## Tecnologias usadas
+O AgroMarkt é uma plataforma digital que conecta agricultores, vendedores e compradores, permitindo a comercialização de produtos agrícolas de forma simples, rápida e segura.
 
-### Frontend
-- React
-- Vite
-- React Router DOM
-- Axios
-- CSS
+A plataforma possibilita que vendedores publiquem produtos, compradores realizem encomendas e administradores façam a gestão completa do sistema.
 
-### Backend
-- Node.js
-- Express
-- Prisma ORM
-- SQLite
-- JWT
-- Bcrypt
+ Tecnologias Utilizadas
 
-## Funcionalidades
+## Frontend
 
-- Cadastro de utilizadores
-- Login com autenticação JWT
-- Diferentes tipos de conta: comprador, vendedor e admin
-- Cadastro de produtos
-- Listagem de produtos
-- Pesquisa e filtro por categoria
-- Detalhes do produto
-- Encomendas/pedidos
-- Dashboard do utilizador
-- Gestão de produtos do vendedor
-- Painel administrativo
-- Gestão de utilizadores e produtos pelo admin
+* React.js
+* Vite
+* React Router DOM
+* Axios
+* CSS
 
-## Estrutura do projecto
+## Backend
 
-```txt
-AGROMARKT/
+* Node.js
+* Express.js
+* Prisma ORM
+* JWT Authentication
+* Bcrypt
+
+## Banco de Dados
+
+* SQLite
+
+#  Funcionalidades
+
+✅ Cadastro de utilizadores
+
+✅ Login com autenticação JWT
+
+✅ Diferentes tipos de conta:
+
+* Comprador
+* Vendedor
+* Administrador
+
+✅ Publicação de produtos agrícolas
+
+✅ Atualização e remoção de produtos
+
+✅ Pesquisa e filtro por categoria
+
+✅ Visualização de detalhes dos produtos
+
+✅ Realização de encomendas
+
+✅ Dashboard do utilizador
+
+✅ Gestão de produtos do vendedor
+
+✅ Painel administrativo
+
+✅ Gestão de utilizadores
+
+✅ Gestão de produtos
+
+✅ Interface responsiva
+
+# 📂 Estrutura do Projeto
+
+```bash
+AgroMarket/
+│
+├── backend/
+│   ├── prisma/
+│   │   └── schema.prisma
+│   │
+│   └── src/
+│       ├── config/
+│       ├── controllers/
+│       ├── middlewares/
+│       ├── routes/
+│       └── server.js
 │
 ├── frontend/
 │   └── src/
@@ -47,10 +85,123 @@ AGROMARKT/
 │       ├── services/
 │       └── App.jsx
 │
-├── backend/
-│   ├── prisma/
-│   │   └── schema.prisma
-│   └── src/
+└── README.md
+```
+
+# ⚙️ Instalação Local
+
+## 1. Clonar o repositório
+
+```bash
+git clone https://github.com/eltonjemusse/agromarkt.git
+```
+
+---
+
+## 2. Entrar na pasta do projeto
+
+```bash
+cd AgroMarket
+```
+
+---
+
+# 🔧 Configuração do Backend
+
+## Entrar na pasta backend
+
+```bash
+cd backend
+```
+
+## Instalar dependências
+
+```bash
+npm install
+```
+
+## Criar arquivo .env
+
+```env
+DATABASE_URL="file:./dev.db"
+JWT_SECRET="SUA_CHAVE_SECRETA"
+PORT=5000
+```
+
+## Executar migrações
+
+```bash
+npx prisma migrate deploy
+```
+
+## Iniciar backend
+
+```bash
+npm run dev
+```
+
+ou
+
+```bash
+npm start
+```
+
+---
+
+# 🎨 Configuração do Frontend
+
+## Entrar na pasta frontend
+
+```bash
+cd frontend
+```
+
+## Instalar dependências
+
+```bash
+npm install
+```
+
+## Iniciar frontend
+
+```bash
+npm run dev
+```
+
+---
+
+# Segurança
+
+O sistema utiliza:
+
+* JWT Authentication
+* Criptografia de senhas com bcrypt
+* Rotas protegidas
+* Controle de acesso por perfil
+* Validação de autenticação para áreas restritas
+
+---
+
+# Responsividade
+
+O sistema adapta-se a:
+
+* Smartphones
+* Tablets
+* Computadores
+
+---
+
+# 👨‍💻 Autor
+
+Elton Raimundo Jemusse
+
+---
+
+# 📄 Licença
+
+Este projeto foi desenvolvido para fins académicos e de aprendizagem.
+
 │       ├── config/
 │       ├── controllers/
 │       ├── middlewares/
