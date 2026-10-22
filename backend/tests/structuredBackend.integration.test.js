@@ -15,7 +15,8 @@ test('HTTP e persistência dos dados estruturados na base local autorizada', asy
     "SELECT json_build_object('database',current_database(),'completed',(SELECT count(*) FROM public._prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL));"],
   { encoding: 'utf8', windowsHide: true, timeout: 15000 });
   assert.equal(preflight.status, 0, 'Base de testes deve estar migrada; não executar o ensaio de base vazia');
-  assert.deepEqual(JSON.parse(preflight.stdout.trim()), { database: 'agromarkt_test', completed: 2 });
+  const migrationCount = fs.readdirSync(require('node:path').join(__dirname, '../prisma/migrations')).filter((name) => /^\d+_/.test(name)).length;
+  assert.deepEqual(JSON.parse(preflight.stdout.trim()), { database: 'agromarkt_test', completed: migrationCount });
 
   // The isolated generator must not embed project .env paths in the client.
   const generated = fs.readFileSync(require.resolve('.prisma/client'), 'utf8');
@@ -186,7 +187,8 @@ test('HTTP e persistência dos dados estruturados na base local autorizada', asy
       assert.equal((await http('PUT', `/orders/${o.id}/status`, 'other', { status: 'aceite' })).status, 403);
       assert.equal((await http('PUT', `/orders/${o.id}/status`, 'seller', { status: 'aceite', totalDecimal: '99' })).status, 400);
       assert.equal((await http('PUT', `/orders/${o.id}/status`, 'seller', { status: 'aceite' })).status, 200);
-      assert.equal((await http('PUT', `/orders/${o.id}/status`, 'admin', { status: 'pendente' })).status, 200);
+      assert.equal((await http('PUT', `/orders/${o.id}/status`, 'admin', { status: 'pendente' })).status, 409);
+      assert.equal((await http('PUT', `/orders/${o.id}/status`, 'admin', { status: 'entregue' })).status, 200);
       for (const [route, role] of [['/orders/my', 'buyer'], ['/orders/received', 'seller']]) {
         const result = await http('GET', route, role);
         const item = result.data.find((row) => row.id === o.id);
@@ -293,6 +295,112 @@ test('HTTP e persistência dos dados estruturados na base local autorizada', asy
       assert.equal(saved.nomeProdutoSnapshot, form.nome);
       assert.equal(saved.unidadeSnapshot, 'kg');
       assert.equal(saved.status, 'pendente');
+    });
+
+    await t.test('stock fracionado desconta uma única vez com oito confirmações simultâneas e entrega final', async () => {
+      const p = await product({ quantidadeDisponivel: '2', precoUnitario: '4' });
+      const o = (await http('POST', '/orders', 'buyer', { productId: p.id, quantidadeNumerica: '0.125' })).data.order;
+      assert.equal((await http('PUT', `/orders/${o.id}/status`, 'buyer', { status: 'aceite' })).status, 403);
+      assert.equal((await http('PUT', `/orders/${o.id}/status`, 'other', { status: 'aceite' })).status, 403);
+      assert.equal((await http('PUT', `/orders/${o.id}/status`, 'seller', { status: 'entregue' })).status, 409);
+      const repeated = await Promise.all(Array.from({ length: 8 }, (_, index) =>
+        http('PUT', `/orders/${o.id}/status`, index % 2 ? 'seller' : 'admin', { status: 'aceite' })));
+      assert.ok(repeated.every((row) => row.status === 200), JSON.stringify(repeated.map((row) => row.status)));
+      assert.equal(new Set(repeated.map((row) => row.data.order.stockDescontadoEm)).size, 1);
+      const saved = await prisma.product.findUnique({ where: { id: p.id } });
+      assert.equal(saved.quantidadeDisponivel.toFixed(6), '1.875000');
+      assert.equal(saved.quantidade, '1.875 kg');
+      assert.equal((await http('PUT', `/orders/${o.id}/status`, 'seller', { status: 'rejeitado' })).status, 409);
+      assert.equal((await http('PUT', `/orders/${o.id}/status`, 'seller', { status: 'entregue' })).status, 200);
+      for (const status of ['pendente', 'aceite', 'rejeitado']) {
+        assert.equal((await http('PUT', `/orders/${o.id}/status`, 'admin', { status })).status, 409);
+      }
+      assert.equal((await prisma.product.findUnique({ where: { id: p.id } })).quantidadeDisponivel.toFixed(6), '1.875000');
+      assert.equal((await prisma.order.findUnique({ where: { id: o.id } })).totalDecimal.toFixed(2), '0.50');
+    });
+
+    await t.test('encomendas concorrentes não ultrapassam disponibilidade; falha não altera pedido nem stock', async () => {
+      for (let round = 0; round < 2; round++) {
+        const p = await product({ quantidadeDisponivel: '1', precoUnitario: '1' });
+        const orders = [];
+        for (let index = 0; index < 2; index++) orders.push((await http('POST', '/orders', 'buyer', {
+          productId: p.id, quantidadeNumerica: '0.75' })).data.order);
+        const results = await Promise.all(orders.map((o) => http('PUT', `/orders/${o.id}/status`, 'seller', { status: 'aceite' })));
+        assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
+        assert.equal((await prisma.product.findUnique({ where: { id: p.id } })).quantidadeDisponivel.toFixed(6), '0.250000');
+        const saved = await prisma.order.findMany({ where: { productId: p.id } });
+        const pending = saved.find((o) => o.status === 'pendente');
+        assert.ok(pending);
+        assert.equal(pending.stockDescontadoEm, null);
+        assert.equal(saved.filter((o) => o.status === 'aceite' && o.stockDescontadoEm).length, 1);
+        assert.equal((await http('PUT', `/orders/${pending.id}/status`, 'seller', { status: 'rejeitado' })).status, 200);
+        assert.equal((await http('PUT', `/orders/${pending.id}/status`, 'admin', { status: 'aceite' })).status, 409);
+      }
+    });
+
+    await t.test('falha depois do débito reverte stock e encomenda na transação PostgreSQL', async () => {
+      const p = await product({ quantidadeDisponivel: '2', precoUnitario: '1' });
+      const o = (await http('POST', '/orders', 'buyer', { productId: p.id, quantidadeNumerica: '1' })).data.order;
+      const { changeOrderStatus } = require('../src/utils/orderWorkflow');
+      const failing = { $transaction: (operation, options) => prisma.$transaction((tx) => operation({
+        $queryRaw: tx.$queryRaw.bind(tx), product: tx.product,
+        order: { findUnique: tx.order.findUnique, update: async () => { throw new Error('synthetic-after-debit'); } }
+      }), options) };
+      await assert.rejects(changeOrderStatus(failing, { id: o.id, actor: accounts.seller, status: 'aceite' }), /synthetic-after-debit/);
+      assert.equal((await prisma.product.findUnique({ where: { id: p.id } })).quantidadeDisponivel.toFixed(6), '2.000000');
+      const saved = await prisma.order.findUnique({ where: { id: o.id } });
+      assert.equal(saved.status, 'pendente');
+      assert.equal(saved.stockDescontadoEm, null);
+    });
+
+    await t.test('legado e unidade alterada exigem revisão; não há desconto retroativo', async () => {
+      const oldInput = input({ quantidade: 'sacos sem peso', preco: 2 });
+      for (const key of ['quantidadeDisponivel', 'unidade', 'precoUnitario', 'moeda']) delete oldInput[key];
+      const old = (await http('POST', '/products', 'seller', oldInput)).data.product;
+      const o = (await http('POST', '/orders', 'buyer', { productId: old.id, quantidade: '1' })).data.order;
+      const denied = await http('PUT', `/orders/${o.id}/status`, 'seller', { status: 'aceite' });
+      assert.equal(denied.status, 409);
+      assert.match(denied.data.message, /revisão/);
+      assert.equal((await http('PUT', `/orders/${o.id}/status`, 'seller', { status: 'rejeitado' })).status, 200);
+      const historic = await prisma.order.create({ data: { productId: old.id, buyerId: accounts.buyer.id,
+        sellerId: accounts.seller.id, quantidade: '1', total: 2, status: 'aceite' } });
+      assert.equal((await http('PUT', `/orders/${historic.id}/status`, 'admin', { status: 'aceite' })).status, 409);
+      assert.equal((await http('PUT', `/orders/${historic.id}/status`, 'seller', { status: 'entregue' })).status, 200);
+      assert.equal((await prisma.product.findUnique({ where: { id: old.id } })).quantidadeDisponivel, null);
+      const p = await product({ quantidadeDisponivel: '2' });
+      const pending = (await http('POST', '/orders', 'buyer', { productId: p.id, quantidadeNumerica: '1' })).data.order;
+      assert.equal((await http('PUT', `/products/${p.id}`, 'seller', { unidade: 'litro' })).status, 200);
+      const mismatch = await http('PUT', `/orders/${pending.id}/status`, 'admin', { status: 'aceite' });
+      assert.equal(mismatch.status, 409);
+      assert.match(mismatch.data.message, /revisão/);
+      assert.equal((await prisma.product.findUnique({ where: { id: p.id } })).quantidadeDisponivel.toFixed(6), '2.000000');
+    });
+
+    await t.test('edição antiga ou simultânea não repõe stock já descontado', async () => {
+      const p = await product({ quantidadeDisponivel: '2', precoUnitario: '1' });
+      const o = (await http('POST', '/orders', 'buyer', { productId: p.id, quantidadeNumerica: '1' })).data.order;
+      const results = await Promise.all([
+        http('PUT', `/orders/${o.id}/status`, 'seller', { status: 'aceite' }),
+        http('PUT', `/products/${p.id}`, 'seller', { quantidadeDisponivel: '2', quantidadeDisponivelEsperada: '2', precoUnitario: '2' })
+      ]);
+      assert.equal(results[0].status, 200);
+      assert.ok([200, 409].includes(results[1].status));
+      assert.equal((await prisma.product.findUnique({ where: { id: p.id } })).quantidadeDisponivel.toFixed(6), '1.000000');
+      const stale = await http('PUT', `/products/${p.id}`, 'seller', { quantidadeDisponivel: '2', quantidadeDisponivelEsperada: '2' });
+      assert.equal(stale.status, 409);
+      assert.equal((await prisma.product.findUnique({ where: { id: p.id } })).quantidadeDisponivel.toFixed(6), '1.000000');
+      assert.equal((await http('PUT', `/products/${p.id}`, 'seller', { quantidadeDisponivel: '1', quantidadeDisponivelEsperada: '1', precoUnitario: '3' })).status, 200);
+    });
+
+    await t.test('aceitar e rejeitar em simultâneo mantém uma única decisão', async () => {
+      const p = await product({ quantidadeDisponivel: '1', precoUnitario: '1' });
+      const o = (await http('POST', '/orders', 'buyer', { productId: p.id, quantidadeNumerica: '1' })).data.order;
+      const results = await Promise.all(['aceite', 'rejeitado'].map((status) => http('PUT', `/orders/${o.id}/status`, 'seller', { status })));
+      assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
+      const saved = await prisma.order.findUnique({ where: { id: o.id } });
+      const quantity = (await prisma.product.findUnique({ where: { id: p.id } })).quantidadeDisponivel.toFixed(6);
+      assert.equal(quantity, saved.status === 'aceite' ? '0.000000' : '1.000000');
+      assert.equal(Boolean(saved.stockDescontadoEm), saved.status === 'aceite');
     });
 
     await t.test('pendentes não reservam/comparam/descontam disponibilidade', async () => {

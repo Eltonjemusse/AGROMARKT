@@ -12,6 +12,7 @@ import {
 
 import Navbar from '../components/Navbar';
 import OrderCommercial from '../components/OrderCommercial';
+import OrderActions from '../components/OrderActions';
 import { canPublish } from '../utils/commercial';
 import api from '../services/api';
 
@@ -23,9 +24,12 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
+  const [updatingOrder, setUpdatingOrder] = useState(null);
   const loggedIn = Boolean(user);
 
   const atualizarEstado = async (orderId, status) => {
+    if (updatingOrder !== null) return;
+    setUpdatingOrder(orderId);
     try {
       await api.put(`/orders/${orderId}/status`, { status });
       alert('Estado actualizado com sucesso!');
@@ -35,6 +39,8 @@ function Dashboard() {
     } catch (error) {
       console.log(error);
       alert(error.response?.data?.message || 'Erro ao actualizar estado');
+    } finally {
+      setUpdatingOrder(null);
     }
   };
 
@@ -212,16 +218,7 @@ function Dashboard() {
                           </>
                         )}
 
-                        <select
-                          aria-label={`Estado da encomenda ${order.id}`}
-                          value={order.status}
-                          onChange={(e) => atualizarEstado(order.id, e.target.value)}
-                        >
-                          <option value="pendente">Pendente</option>
-                          <option value="aceite">Aceite</option>
-                          <option value="rejeitado">Rejeitado</option>
-                          <option value="entregue">Entregue</option>
-                        </select>
+                        <OrderActions order={order} busy={updatingOrder !== null} onStatus={atualizarEstado} />
                       </div>
                     ))}
                   </div>

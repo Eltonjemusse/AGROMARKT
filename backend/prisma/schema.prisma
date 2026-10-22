@@ -76,6 +76,12 @@ model Order {
   moedaSnapshot           String?                  @db.Char(3)
   totalDecimal            Decimal?                 @db.Decimal(30, 2)
   nomeProdutoSnapshot     String?
+  // Null on old orders. Set only by atomic acceptance; never backfill.
+  stockDescontadoEm        DateTime?
   versaoCalculo           String?
   dadosEstruturadosEstado DadosEstruturadosEstado?
+
+  @@index([productId])
+  @@index([buyerId])
+  @@index([sellerId])
 }

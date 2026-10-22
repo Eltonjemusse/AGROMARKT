@@ -22,6 +22,7 @@ test('vistas comerciais respeitam permissões, unidades e dados históricos', as
     const Navbar = await load('components/Navbar');
     const NovoProduto = await load('pages/NovoProduto');
     const OrderCommercial = await load('components/OrderCommercial');
+    const OrderActions = await load('components/OrderActions');
     const ProductCommercial = await load('components/ProductCommercial');
     const ProductFields = await load('components/ProductFields');
     const { productFormValues } = await import('../src/utils/commercial.js');
@@ -83,6 +84,24 @@ test('vistas comerciais respeitam permissões, unidades e dados históricos', as
       assert.match(html, /moeda histórica não confirmada/);
       assert.match(html, /Produto atual \(referência\)/);
       assert.doesNotMatch(html, /200 MT|900|2 saco/);
+    });
+
+    await t.test('legado mostra revisão e bloqueia a aceitação na interface', () => {
+      const html = render(OrderActions, { order: { id: 1, status: 'pendente' }, onStatus: () => {} });
+      assert.match(html, /Revisão necessária/);
+      assert.match(html, /<button[^>]*disabled=""[^>]*>Aceitar encomenda/);
+      assert.match(html, /Rejeitar encomenda/);
+    });
+
+    await t.test('encomenda aceite só oferece entrega e estados finais não oferecem reabertura', () => {
+      const html = render(OrderActions, { order: { id: 1, status: 'aceite', stockDescontadoEm: '2026-10-22T17:00:00Z' }, onStatus: () => {} });
+      assert.match(html, /Marcar como entregue/);
+      assert.doesNotMatch(html, /Aceitar encomenda|Rejeitar encomenda/);
+      for (const status of ['entregue', 'rejeitado']) {
+        const closed = render(OrderActions, { order: { id: 1, status }, onStatus: () => {} });
+        assert.match(closed, /Encomenda encerrada/);
+        assert.doesNotMatch(closed, /<button/);
+      }
     });
   } finally {
     await vite.close();

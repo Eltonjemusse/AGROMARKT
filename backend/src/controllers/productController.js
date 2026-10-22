@@ -1,6 +1,7 @@
 const prisma = require('../config/prisma');
 const { isObjectBody, positiveNumber, positiveId } = require('../utils/validation');
-const { prepareStructuredProduct, serializeProduct } = require('../utils/structuredCommerce');
+const { prepareStructuredProduct, serializeProduct, isStructuredProduct } = require('../utils/structuredCommerce');
+const { validateQuantity } = require('../utils/commercialDecimals');
 
 const createProduct = async (req, res) => {
   try {
@@ -104,6 +105,11 @@ const updateProduct = async (req, res) => {
 
     const data = {};
     const structured = prepareStructuredProduct(req.body, product);
+    if (Object.prototype.hasOwnProperty.call(req.body, 'quantidadeDisponivelEsperada')) {
+      const expected = validateQuantity(req.body.quantidadeDisponivelEsperada, product.unidade, { allowZero: true });
+      const current = validateQuantity(product.quantidadeDisponivel?.toString(), product.unidade, { allowZero: true });
+      if (expected !== current) return res.status(409).json({ message: 'A disponibilidade mudou. Reabre a edição para rever os valores atuais.' });
+    }
     const editableFields = ['nome', 'descricao', 'quantidade', 'categoria', 'imagem', 'localizacao'];
 
     for (const field of editableFields) {
@@ -133,10 +139,17 @@ const updateProduct = async (req, res) => {
 
     Object.assign(data, structured);
 
-    const updatedProduct = await prisma.product.update({
-      where: { id },
-      data
-    });
+    let updatedProduct;
+    if (structured && isStructuredProduct(product)) {
+      // Do not overwrite a concurrent stock debit with the pre-read quantity/unit.
+      const result = await prisma.product.updateMany({
+        where: { id, quantidadeDisponivel: product.quantidadeDisponivel, unidade: product.unidade }, data
+      });
+      if (result.count !== 1) return res.status(409).json({ message: 'A disponibilidade mudou. Reabre a edição para rever os valores atuais.' });
+      updatedProduct = await prisma.product.findUnique({ where: { id } });
+    } else {
+      updatedProduct = await prisma.product.update({ where: { id }, data });
+    }
 
     res.json({ message: 'Produto actualizado com sucesso', product: serializeProduct(updatedProduct) });
   } catch (error) {

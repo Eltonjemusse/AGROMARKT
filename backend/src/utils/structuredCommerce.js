@@ -5,7 +5,7 @@ const D = Decimal.clone({ precision: 40, rounding: Decimal.ROUND_HALF_UP });
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const productFields = ['quantidadeDisponivel', 'unidade', 'precoUnitario', 'moeda'];
 const snapshotFields = ['quantidadeNumerica', 'unidadeSnapshot', 'precoUnitarioSnapshot',
-  'moedaSnapshot', 'totalDecimal', 'nomeProdutoSnapshot', 'versaoCalculo', 'dadosEstruturadosEstado'];
+  'moedaSnapshot', 'totalDecimal', 'nomeProdutoSnapshot', 'versaoCalculo', 'dadosEstruturadosEstado', 'stockDescontadoEm'];
 
 function hasStructuredData(product) {
   return productFields.some((key) => product[key] !== null && product[key] !== undefined);

@@ -98,11 +98,18 @@ Plataforma para aproximar agricultores/vendedores e compradores de produtos agr�
 
 - Repetidos 19 testes frontend e 12 HTTP/PostgreSQL: aprovados, sem ignorados; build aprovado. O percurso agora inclui registo público e login reais de vendedor/comprador, publicação bloqueada ao comprador, publicação/consulta/compra fracionada e snapshots preservados após edição. Limpeza sintética confirmada. Bloco pronto para commit local; verificação visual/browser continua bloqueada pela ferramenta indisponível.
 
+## Versão funcional — stock e estados
+
+- 2A.4 guardada em `a804aea`. Implementadas pendente → aceite/rejeitado e aceite → entregue; finais não reabrem. Repetir uma confirmação concluída é idempotente. Apenas vendedor responsável/admin altera; aceitação antiga sem débito comprovado exige revisão.
+- Aceitação bloqueia encomenda/produto e valida disponibilidade, snapshots/unidade e desconto/estado na mesma transação. Pendentes não reservam; legado incompleto ou unidade incompatível não é aceite automaticamente. Edição protege contra débito concorrente e o frontend envia a disponibilidade original para recusar formulários desatualizados.
+- Migração aditiva `20261022170000_order_stock_acceptance`: marcador nullable sem default/backfill, CHECK e índices. Aplicada só em `127.0.0.1:55432/agromarkt_test` por `node scripts/deployLocalTestMigrations.js`, com variáveis específicas e confirmação no processo: 3 migrações concluídas, segundo deploy sem mudanças, contagens preservadas e diff Prisma exit 0. Cliente gerado com `npm.cmd run generate:isolated`; sem .env.
+- Verificação: 64 testes backend, 18 HTTP/PostgreSQL e 21 frontend aprovados, sem ignorados; build e diff --check aprovados. Integração cobre oito confirmações simultâneas, concorrência entre encomendas e aceitar/rejeitar, insuficiência, rollback real após falha injetada, frações, edição concorrente/desatualizada e finais/legado. Limpeza apenas dos dados sintéticos confirmada. Não foi repetido o ensaio de base vazia; produção intacta.
+
 ## Pendências e produção
 
 - Implementar conversão de comprador para vendedor.
 - Validar o novo percurso no navegador em computador/telemóvel; revisão visual geral e acessibilidade nas fases 4A/4B. Unidade estruturada e adaptação funcional das quantidades estão implementadas localmente na 2A.4.
-- Definir e implementar transições de estado, controlo de stock na confirmação e preservação do histórico nas remoções.
+- Proteger histórico nas remoções (bloco seguinte); transições e stock da versão atual já implementados/testados. Cancelamento após aceitação continua fora desta versão.
 - Resolver os 2 erros preexistentes de lint que restam no frontend (Admin.jsx e Produtos.jsx). Nenhum erro novo de lint na 2A.4.
 - **A produção ainda não recebeu estas correções.**
 - Antes da publicação, verificar a legitimidade das contas administrativas existentes e avaliar os tokens já emitidos. Essa verificação continua pendente: não consultar nem alterar dados de produção nesta etapa.

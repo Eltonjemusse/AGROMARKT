@@ -1,6 +1,7 @@
 const prisma = require('../config/prisma');
 const { isObjectBody, positiveNumber, positiveId } = require('../utils/validation');
 const { validateUnitPrice } = require('../utils/commercialDecimals');
+const { changeOrderStatus } = require('../utils/orderWorkflow');
 const { hasStructuredData, isStructuredProduct, prepareStructuredOrder,
   rejectSnapshotInput, serializeOrder } = require('../utils/structuredCommerce');
 
@@ -98,13 +99,12 @@ const updateOrderStatus = async (req, res) => {
     }
     rejectSnapshotInput(req.body);
 
-    const updated = await prisma.order.update({
-      where: { id: order.id },
-      data: { status: req.body.status }
-    });
+    const updated = await changeOrderStatus(prisma, { id, actor: req.user, status: req.body.status });
 
     res.json({ message: 'Estado actualizado', order: serializeOrder(updated) });
   } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
+    if (['P2034', 'P2028'].includes(error.code)) return res.status(409).json({ message: 'Operação em conflito; atualiza a encomenda e tenta novamente.' });
     if (error instanceof TypeError || error instanceof RangeError) return res.status(400).json({ message: error.message });
     res.status(500).json({ message: 'Erro ao actualizar estado' });
   }

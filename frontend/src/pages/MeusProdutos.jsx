@@ -38,7 +38,7 @@ function MeusProdutos() {
   };
   const iniciarEdicao = (product) => {
     setEditError('');
-    setEditing({ id: product.id, legacy: !isStructuredProduct(product), form: productFormValues(product) });
+    setEditing({ id: product.id, legacy: !isStructuredProduct(product), originalQuantity: product.quantidadeDisponivel, form: productFormValues(product) });
   };
   const handleChange = (event) => setEditing({ ...editing, form: { ...editing.form, [event.target.name]: event.target.value } });
   const salvarEdicao = async (event) => {
@@ -46,6 +46,7 @@ function MeusProdutos() {
     setEditError('');
     try {
       const payload = buildProductPayload(editing.form, { allowEmptyCommercial: editing.legacy });
+      if (!editing.legacy) payload.quantidadeDisponivelEsperada = editing.originalQuantity;
       setSaving(true);
       await api.put(`/products/${editing.id}`, payload);
       setEditing(null);

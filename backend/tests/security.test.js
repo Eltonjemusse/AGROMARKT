@@ -15,6 +15,7 @@ function loadController(filename, dependencies) {
       if (name === '../utils/validation') return require('../src/utils/validation');
       if (name === '../utils/structuredCommerce') return require('../src/utils/structuredCommerce');
       if (name === '../utils/commercialDecimals') return require('../src/utils/commercialDecimals');
+      if (name === '../utils/orderWorkflow') return require('../src/utils/orderWorkflow');
       if (!Object.prototype.hasOwnProperty.call(dependencies, name)) {
         throw new Error(`Unexpected dependency: ${name}`);
       }
@@ -276,6 +277,8 @@ function marketplace(overrides = {}) {
       deleteMany: record('order.deleteMany', { count: 0 })
     }
   };
+  prisma.$transaction = async (operation) => operation(prisma);
+  prisma.$queryRaw = async () => [];
   const dependencies = { '../config/prisma': prisma };
   return {
     products: loadController('productController.js', dependencies),
@@ -395,15 +398,21 @@ test('preço guardado inválido e total com overflow/underflow são rejeitados',
   }
 });
 
-test('apenas vendedor da encomenda/admin alteram os quatro estados legítimos', async () => {
+test('apenas vendedor da encomenda/admin rejeitam pedidos; saltos e legado são bloqueados', async () => {
   for (const user of [{ id: 2, tipo: 'vendedor' }, { id: 99, tipo: 'admin' }]) {
-    for (const status of ['pendente', 'aceite', 'rejeitado', 'entregue']) {
+    for (const status of ['rejeitado']) {
       const { orders, calls } = marketplace();
       const res = response();
       await orders.updateOrderStatus({ params: { id: '20' }, user, body: { status, total: 0, buyerId: 99 } }, res);
       assert.equal(res.statusCode, 200);
-      assert.deepEqual({ ...calls[1].data }, { status });
-      assert.deepEqual({ ...calls[1].where }, { id: 20 });
+      assert.deepEqual({ ...calls.at(-1).data }, { status });
+      assert.deepEqual({ ...calls.at(-1).where }, { id: 20 });
+    }
+    for (const status of ['aceite', 'entregue']) {
+      const { orders } = marketplace();
+      const res = response();
+      await orders.updateOrderStatus({ params: { id: 20 }, user, body: { status } }, res);
+      assert.equal(res.statusCode, 409);
     }
   }
   for (const user of [{ id: 3, tipo: 'comprador' }, { id: 4, tipo: 'vendedor' }]) {
