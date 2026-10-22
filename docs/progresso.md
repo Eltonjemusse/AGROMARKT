@@ -31,6 +31,15 @@ Plataforma para aproximar agricultores/vendedores e compradores de produtos agr�
 - Verificação: `npm.cmd test` no backend, **39 testes aprovados, zero falhas**, incluindo os 26 anteriores; `git diff --check` aprovado. Dependências de persistência simuladas, sem carregar Prisma, `.env` ou dados de produção. Testes cobrem permissões, corpos/IDs/preços/quantidades/estados inválidos, frações, totais inválidos e filtros de consulta.
 - Fase 1B concluída e revista, sem defeitos adicionais de autorização/validação identificados no diff. Testes repetidos: 39 aprovados. Commit local desta fase: `fix: validar permissoes e encomendas`; sem push ou deploy. Sem alteração de esquema, frontend ou base de dados. Testes limitados aos controladores e validações; integração HTTP/base de dados não executada. Valores monetários continuam em Float.
 
+## Fase 2A.1
+
+- Implementadas funções puras em `commercialDecimals.js`, usando apenas Decimal do runtime Prisma 5.22.0 instalado (cliente e CLI). Cópia isolada com precisão 40, sem Number/parseFloat nos cálculos comerciais.
+- Definições para novos cálculos: quantidade/preço Decimal(18,6), total Decimal(30,2), MZN e ROUND_HALF_UP apenas no total final. kg/litro permitem frações até seis casas significativas; unidade/saco só inteiros. Não presumir peso de saco.
+- Validação de texto decimal canónico, rejeição de excesso de escala significativo, valores fora dos limites e total arredondado para zero. Zeros finais excedentes são normalizados sem perda. Limites técnicos e configuração comercial explícita `maxTotal: null` documentados em `fase-2a-dados.md`; nenhum teto comercial inventado.
+- Preparados campos opcionais e enums no `schema.prisma`, mantendo campos/relações antigos e sem defaults, migração, geração de cliente ou preenchimento de dados. Unidade definida por quatro códigos fixos e sincronização enum/validação testada.
+- `npm.cmd test`: **57 testes aprovados, zero falhas**. Validação estática do esquema aprovada em pasta temporária com URL fictícia e sem carregar `.env`/configuração do projeto; `git diff --check` aprovado.
+- Controladores, contratos e frontend continuam os da 1B. A 2A.2 deve integrar os decimais/formulários e preparar ensaios de migração isolada. Não foi implementado stock, conversão de legado ou acesso a produção. Entrega local 2A.1: `feat: preparar quantidades e valores decimais`, sem push ou deploy. Os dois documentos de planeamento foram preservados e atualizados.
+
 ## Pendências e produção
 
 - Implementar conversão de comprador para vendedor.

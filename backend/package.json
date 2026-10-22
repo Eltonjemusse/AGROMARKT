@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-  "test": "node --test tests/security.test.js",
+  "test": "node --test tests/security.test.js tests/commercialDecimals.test.js",
   "dev": "nodemon src/server.js",
   "start": "node src/server.js",
   "build": "npx prisma generate",

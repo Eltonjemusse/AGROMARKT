@@ -7,6 +7,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Fixed initial units; no conversion or implied weight for a sack.
+enum Unidade {
+  kg
+  litro
+  unidade
+  saco
+}
+
+enum DadosEstruturadosEstado {
+  validado
+  pendente_revisao
+}
+
 model User {
   id               Int       @id @default(autoincrement())
   nome             String
@@ -34,6 +47,13 @@ model Product {
   createdAt   DateTime @default(now())
   orders      Order[]
   user        User     @relation(fields: [userId], references: [id])
+
+  // Additive preparation only. No defaults or backfill for existing records.
+  quantidadeDisponivel    Decimal?                 @db.Decimal(18, 6)
+  unidade                 Unidade?
+  precoUnitario           Decimal?                 @db.Decimal(18, 6)
+  moeda                   String?                  @db.Char(3)
+  dadosEstruturadosEstado DadosEstruturadosEstado?
 }
 
 model Order {
@@ -48,4 +68,14 @@ model Order {
   buyer      User     @relation("BuyerOrders", fields: [buyerId], references: [id])
   product    Product  @relation(fields: [productId], references: [id])
   seller     User     @relation("SellerOrders", fields: [sellerId], references: [id])
+
+  // Historical snapshots are nullable because legacy values may be unknown.
+  quantidadeNumerica      Decimal?                 @db.Decimal(18, 6)
+  unidadeSnapshot         Unidade?
+  precoUnitarioSnapshot   Decimal?                 @db.Decimal(18, 6)
+  moedaSnapshot           String?                  @db.Char(3)
+  totalDecimal            Decimal?                 @db.Decimal(30, 2)
+  nomeProdutoSnapshot     String?
+  versaoCalculo           String?
+  dadosEstruturadosEstado DadosEstruturadosEstado?
 }
