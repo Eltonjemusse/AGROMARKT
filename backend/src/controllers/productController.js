@@ -139,6 +139,12 @@ const updateProduct = async (req, res) => {
     }
 
     Object.assign(data, structured);
+    // Legacy echoes are compatibility checks, not commercial writes. A stock
+    // acceptance may update these projections after the read above.
+    if (isStructuredProduct(product) && !structured) {
+      delete data.quantidade;
+      delete data.preco;
+    }
 
     let updatedProduct;
     if (structured && isStructuredProduct(product)) {

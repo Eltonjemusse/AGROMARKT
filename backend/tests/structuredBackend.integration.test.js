@@ -168,7 +168,7 @@ test('HTTP e persistência dos dados estruturados na base local autorizada', asy
       for (const extra of [{ quantidadeNumerica: 1 }, { quantidadeNumerica: true }, { quantidadeNumerica: '0' },
         { quantidadeNumerica: '0.0000001' }, { quantidadeNumerica: '0.000001' }, { quantidade: '2' }, { moeda: 'USD' }, { unidade: 'saco' },
         { precoUnitario: '7' }, { total: 99 }, { totalDecimal: '1' }, { nomeProdutoSnapshot: 'inventado' },
-        { precoUnitarioSnapshot: '7' }, { dadosEstruturadosEstado: 'validado' }]) {
+        { precoUnitarioSnapshot: '7' }, { dadosEstruturadosEstado: 'validado' }, { stockDescontadoEm: '2026-10-22T17:00:00Z' }]) {
         const r = await http('POST', '/orders', 'buyer', { productId: p.id, quantidadeNumerica: '1', ...extra });
         assert.equal(r.status, 400, r.data.message);
       }
@@ -295,6 +295,20 @@ test('HTTP e persistência dos dados estruturados na base local autorizada', asy
       assert.equal(saved.nomeProdutoSnapshot, form.nome);
       assert.equal(saved.unidadeSnapshot, 'kg');
       assert.equal(saved.status, 'pendente');
+      // Complete the workflow using the accounts registered/logged in above.
+      assert.equal((await http('PUT', `/orders/${o.id}/status`, 'registeredSeller', { status: 'aceite' })).status, 409);
+      assert.equal((await http('PUT', `/products/${p.id}`, 'registeredSeller', { unidade: 'kg' })).status, 200);
+      const accepted = await http('PUT', `/orders/${o.id}/status`, 'registeredSeller', { status: 'aceite' });
+      assert.equal(accepted.status, 200);
+      assert.ok(accepted.data.order.stockDescontadoEm);
+      assert.equal((await prisma.product.findUnique({ where: { id: p.id } })).quantidadeDisponivel.toFixed(6), '20.375000');
+      assert.equal((await http('PUT', `/orders/${o.id}/status`, 'registeredSeller', { status: 'entregue' })).status, 200);
+      for (const [route, role] of [['/orders/my', 'registeredBuyer'], ['/orders/received', 'registeredSeller']]) {
+        const listed = await http('GET', route, role);
+        const row = listed.data.find((item) => item.id === o.id);
+        assert.equal(row.status, 'entregue');
+        assert.deepEqual(snapshots(row), original);
+      }
     });
 
     await t.test('stock fracionado desconta uma única vez com oito confirmações simultâneas e entrega final', async () => {
@@ -390,6 +404,17 @@ test('HTTP e persistência dos dados estruturados na base local autorizada', asy
       assert.equal(stale.status, 409);
       assert.equal((await prisma.product.findUnique({ where: { id: p.id } })).quantidadeDisponivel.toFixed(6), '1.000000');
       assert.equal((await http('PUT', `/products/${p.id}`, 'seller', { quantidadeDisponivel: '1', quantidadeDisponivelEsperada: '1', precoUnitario: '3' })).status, 200);
+      const fresh = (await http('GET', `/products/${p.id}`, null)).data;
+      const second = (await http('POST', '/orders', 'buyer', { productId: p.id, quantidadeNumerica: '0.5' })).data.order;
+      const echo = await Promise.all([
+        http('PUT', `/orders/${second.id}/status`, 'seller', { status: 'aceite' }),
+        http('PUT', `/products/${p.id}`, 'seller', { descricao: 'Descrição nova', quantidade: fresh.quantidade, preco: fresh.preco })
+      ]);
+      assert.equal(echo[0].status, 200);
+      assert.ok([200, 400].includes(echo[1].status));
+      const after = await prisma.product.findUnique({ where: { id: p.id } });
+      assert.equal(after.quantidadeDisponivel.toFixed(6), '0.500000');
+      assert.equal(after.quantidade, '0.5 kg');
     });
 
     await t.test('aceitar e rejeitar em simultâneo mantém uma única decisão', async () => {

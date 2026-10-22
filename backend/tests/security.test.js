@@ -155,6 +155,16 @@ for (const user of [{ id: 2, tipo: 'vendedor' }, { id: 99, tipo: 'admin' }]) {
   });
 }
 
+test('eco legado em edição de metadados não reescreve projeções comerciais concorrentes', async () => {
+  const { updateProduct, product, calls } = productEditing();
+  Object.assign(product, { quantidadeDisponivel: '10.000000', unidade: 'kg', precoUnitario: '25.000000',
+    moeda: 'MZN', dadosEstruturadosEstado: 'validado' });
+  const res = response();
+  await updateProduct(editRequest({ descricao: 'Descrição nova', preco: product.preco, quantidade: product.quantidade }), res);
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual({ ...calls.data }, { descricao: 'Descrição nova' });
+});
+
 test('edição de produto alheio é negada', async () => {
   const { updateProduct, calls } = productEditing();
   const res = response();
