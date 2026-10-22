@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const { positiveId } = require('../utils/validation');
+const { serializeProduct } = require('../utils/structuredCommerce');
 
 const getUsers = async (req, res) => {
   try {
@@ -80,7 +81,7 @@ const getProducts = async (req, res) => {
       }
     });
 
-    res.json(products);
+    res.json(products.map(serializeProduct));
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: 'Erro ao buscar produtos' });

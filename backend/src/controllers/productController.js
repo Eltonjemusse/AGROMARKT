@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const { isObjectBody, positiveNumber, positiveId } = require('../utils/validation');
+const { prepareStructuredProduct, serializeProduct } = require('../utils/structuredCommerce');
 
 const createProduct = async (req, res) => {
   try {
@@ -12,11 +13,15 @@ const createProduct = async (req, res) => {
     }
 
     const { nome, descricao, preco, quantidade, categoria, imagem, localizacao } = req.body;
-    if ([nome, descricao, quantidade, categoria, localizacao].some((value) => typeof value !== 'string' || !value.trim())) {
+    if ([nome, descricao, categoria, localizacao].some((value) => typeof value !== 'string' || !value.trim())) {
       return res.status(400).json({ message: 'Os campos obrigatórios do produto devem ser texto não vazio' });
     }
 
-    const price = positiveNumber(preco);
+    const structured = prepareStructuredProduct(req.body);
+    const price = structured ? structured.preco : positiveNumber(preco);
+    if (!structured && (typeof quantidade !== 'string' || !quantidade.trim())) {
+      return res.status(400).json({ message: 'Quantidade legada deve ser texto não vazio' });
+    }
     if (!Number.isFinite(price)) {
       return res.status(400).json({ message: 'O preço deve ser um número finito e positivo' });
     }
@@ -33,12 +38,14 @@ const createProduct = async (req, res) => {
         categoria,
         imagem,
         localizacao,
-        userId: req.user.id
+        userId: req.user.id,
+        ...structured
       }
     });
 
-    res.status(201).json({ message: 'Produto criado com sucesso', product });
+    res.status(201).json({ message: 'Produto criado com sucesso', product: serializeProduct(product) });
   } catch (error) {
+    if (error instanceof TypeError || error instanceof RangeError) return res.status(400).json({ message: error.message });
     res.status(500).json({ message: 'Erro ao criar produto' });
   }
 };
@@ -53,7 +60,7 @@ const getProducts = async (req, res) => {
     orderBy: { createdAt: 'desc' }
   });
 
-  res.json(products);
+  res.json(products.map(serializeProduct));
 };
 
 const getProductById = async (req, res) => {
@@ -72,7 +79,7 @@ const getProductById = async (req, res) => {
     return res.status(404).json({ message: 'Produto não encontrado' });
   }
 
-  res.json(product);
+  res.json(serializeProduct(product));
 };
 
 const updateProduct = async (req, res) => {
@@ -96,10 +103,17 @@ const updateProduct = async (req, res) => {
     }
 
     const data = {};
+    const structured = prepareStructuredProduct(req.body, product);
     const editableFields = ['nome', 'descricao', 'quantidade', 'categoria', 'imagem', 'localizacao'];
 
     for (const field of editableFields) {
       if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        if (field !== 'imagem' && (typeof req.body[field] !== 'string' || !req.body[field].trim())) {
+          return res.status(400).json({ message: 'Campos do produto devem ser texto não vazio' });
+        }
+        if (field === 'imagem' && req.body[field] !== null && typeof req.body[field] !== 'string') {
+          return res.status(400).json({ message: 'Imagem deve ser texto ou nula' });
+        }
         data[field] = req.body[field];
       }
     }
@@ -117,13 +131,16 @@ const updateProduct = async (req, res) => {
       data.preco = preco;
     }
 
+    Object.assign(data, structured);
+
     const updatedProduct = await prisma.product.update({
       where: { id },
       data
     });
 
-    res.json({ message: 'Produto actualizado com sucesso', product: updatedProduct });
+    res.json({ message: 'Produto actualizado com sucesso', product: serializeProduct(updatedProduct) });
   } catch (error) {
+    if (error instanceof TypeError || error instanceof RangeError) return res.status(400).json({ message: error.message });
     res.status(500).json({ message: 'Erro ao actualizar produto' });
   }
 };
@@ -164,7 +181,7 @@ const getMyProducts = async (req, res) => {
       }
     });
 
-    res.json(products);
+    res.json(products.map(serializeProduct));
   } catch (error) {
     console.log('ERRO AO BUSCAR MEUS PRODUTOS:', error);
     res.status(500).json({

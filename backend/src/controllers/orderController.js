@@ -1,5 +1,8 @@
 const prisma = require('../config/prisma');
 const { isObjectBody, positiveNumber, positiveId } = require('../utils/validation');
+const { validateUnitPrice } = require('../utils/commercialDecimals');
+const { hasStructuredData, isStructuredProduct, prepareStructuredOrder,
+  rejectSnapshotInput, serializeOrder } = require('../utils/structuredCommerce');
 
 const createOrder = async (req, res) => {
   try {
@@ -7,9 +10,13 @@ const createOrder = async (req, res) => {
       return res.status(400).json({ message: 'Dados de encomenda inválidos' });
     }
     const { productId, quantidade } = req.body;
+    rejectSnapshotInput(req.body, { creating: true });
     const id = positiveId(productId);
-    const quantity = positiveNumber(quantidade);
-    if (!Number.isFinite(id) || !Number.isFinite(quantity)) {
+    const modernQuantity = Object.prototype.hasOwnProperty.call(req.body, 'quantidadeNumerica');
+    // Same positive NUMERIC(18,6) bounds; the actual unit is checked from the product below.
+    if (modernQuantity) validateUnitPrice(req.body.quantidadeNumerica);
+    const quantity = modernQuantity ? null : positiveNumber(quantidade);
+    if (!Number.isFinite(id) || (!modernQuantity && !Number.isFinite(quantity))) {
       return res.status(400).json({ message: 'Produto e quantidade devem ter valores válidos e positivos' });
     }
 
@@ -25,8 +32,13 @@ const createOrder = async (req, res) => {
       return res.status(400).json({ message: 'Não podes encomendar o teu próprio produto' });
     }
 
-    const total = product.preco * quantity;
-    if (!Number.isFinite(product.preco) || product.preco <= 0 || !Number.isFinite(total) || total <= 0) {
+    const requestedStructured = ['quantidadeNumerica', 'unidade', 'moeda', 'precoUnitario'].some((key) => Object.prototype.hasOwnProperty.call(req.body, key));
+    if (!isStructuredProduct(product) && (requestedStructured || hasStructuredData(product))) {
+      return res.status(409).json({ message: 'Produto sem dados estruturados completos e validados; contacte o vendedor' });
+    }
+    const structured = isStructuredProduct(product) ? prepareStructuredOrder(req.body, product) : null;
+    const total = structured ? structured.total : product.preco * quantity;
+    if (!structured && (!Number.isFinite(product.preco) || product.preco <= 0 || !Number.isFinite(total) || total <= 0)) {
       return res.status(400).json({ message: 'Preço do produto ou total da encomenda inválido' });
     }
 
@@ -36,12 +48,14 @@ const createOrder = async (req, res) => {
         buyerId: req.user.id,
         sellerId: product.userId,
         quantidade: String(quantity),
-        total
+        total,
+        ...structured
       }
     });
 
-    res.status(201).json({ message: 'Pedido criado com sucesso', order });
+    res.status(201).json({ message: 'Pedido criado com sucesso', order: serializeOrder(order) });
   } catch (error) {
+    if (error instanceof TypeError || error instanceof RangeError) return res.status(400).json({ message: error.message });
     res.status(500).json({ message: 'Erro ao criar pedido' });
   }
 };
@@ -53,7 +67,7 @@ const getMyOrders = async (req, res) => {
     orderBy: { createdAt: 'desc' }
   });
 
-  res.json(orders);
+  res.json(orders.map(serializeOrder));
 };
 
 const getReceivedOrders = async (req, res) => {
@@ -63,7 +77,7 @@ const getReceivedOrders = async (req, res) => {
     orderBy: { createdAt: 'desc' }
   });
 
-  res.json(orders);
+  res.json(orders.map(serializeOrder));
 };
 
 const updateOrderStatus = async (req, res) => {
@@ -82,14 +96,16 @@ const updateOrderStatus = async (req, res) => {
     if (!isObjectBody(req.body) || !['pendente', 'aceite', 'rejeitado', 'entregue'].includes(req.body.status)) {
       return res.status(400).json({ message: 'Estado de encomenda inválido' });
     }
+    rejectSnapshotInput(req.body);
 
     const updated = await prisma.order.update({
       where: { id: order.id },
       data: { status: req.body.status }
     });
 
-    res.json({ message: 'Estado actualizado', order: updated });
+    res.json({ message: 'Estado actualizado', order: serializeOrder(updated) });
   } catch (error) {
+    if (error instanceof TypeError || error instanceof RangeError) return res.status(400).json({ message: error.message });
     res.status(500).json({ message: 'Erro ao actualizar estado' });
   }
 };

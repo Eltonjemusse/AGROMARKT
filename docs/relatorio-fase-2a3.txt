@@ -1,0 +1,159 @@
+RELATÓRIO — FASE 2A.3: DADOS ESTRUTURADOS NO BACKEND
+
+Ramo: melhorias-agromarkt
+Estado: implementação 2A.3 concluída localmente, sem commit, para revisão.
+
+1. COMMIT DA FASE 2A.2
+
+Hash: 923acc68a0f96b8306a88477a98b315e2480e840
+Mensagem: test: validar migracao comercial em PostgreSQL
+
+O commit incluiu apenas os nove ficheiros revistos da fase 2A.2:
+  backend/prisma/migrations/20261022140000_add_structured_commercial_fields/migration.sql
+  backend/tests/fixtures/migration-2a.sql
+  backend/tests/helpers/migrationTestDatabase.js
+  backend/tests/migration.integration.test.js
+  backend/tests/migrationPreparation.test.js
+  backend/tests/prismaDeploy.integration.test.js
+  docs/fase-2a2-migracao.md
+  docs/progresso.md
+  docs/relatorio-migracao-2a2.txt
+
+2. ALTERAÇÕES DA FASE 2A.3
+
+- Cliente Prisma 5.22.0 atualizado com geração isolada, sem carregar o .env
+  do projeto nem ligar a uma base de dados. Artefactos gerados em
+  backend/node_modules/.prisma/client, ignorados pelo Git.
+- Campos estruturados integrados nos controladores de produtos/encomendas.
+  Quantidade, preço unitário e total novos entram/saem como strings decimais.
+- Cálculos estruturados usam validadores existentes, precisão 40 e
+  ROUND_HALF_UP apenas no total final. Valores fora dos limites, excesso
+  significativo de escala e total final zero são rejeitados.
+- Novas escritas estruturadas exigem quantidade, unidade, preço e moeda
+  coerentes. kg/litro permitem frações; unidade/saco exigem inteiros.
+- Contratos legados preservados temporariamente. Dados contraditórios entre
+  formatos são rejeitados. Projeções antigas são sincronizadas; alterações
+  comerciais apenas pelos campos antigos de produtos estruturados são
+  rejeitadas para evitar dados desatualizados.
+- Encomendas estruturadas obtêm comprador da autenticação e vendedor,
+  unidade, moeda, preço e nome do produto no servidor. Guardam snapshots
+  imutáveis e versão de cálculo.
+- Editar o produto ou alterar o estado da encomenda não modifica snapshots.
+  Tentativas de enviar/modificar campos de snapshot são rejeitadas.
+- Produtos antigos continuam consultáveis. Pedidos estruturados sobre
+  produtos incompletos devolvem HTTP 409 claro. Nenhuma unidade ou dado
+  histórico é inventado; não há interpretação automática do texto antigo.
+- Permissões das fases 1A/1B mantidas. Pendentes não reservam, comparam ou
+  descontam disponibilidade. Stock e novas transições não foram implementados.
+
+Ficheiros alterados:
+  backend/package.json
+  backend/src/controllers/adminController.js
+  backend/src/controllers/orderController.js
+  backend/src/controllers/productController.js
+  backend/tests/security.test.js
+  docs/plano-implementacao.md
+  docs/progresso.md
+
+Ficheiros criados:
+  backend/scripts/generatePrismaIsolated.js
+  backend/src/utils/structuredCommerce.js
+  backend/tests/structuredCommerce.test.js
+  backend/tests/structuredBackend.integration.test.js
+  docs/fase-2a3-backend.md
+
+O esquema e as migrações não foram alterados na 2A.3. A implementação desta
+fase ficou sem commit e sem staging para revisão.
+
+3. VERIFICAÇÕES E RESULTADOS REAIS DA ÚLTIMA TAREFA
+
+Geração isolada:
+  node scripts/generatePrismaIsolated.js
+  Resultado final: cliente Prisma 5.22.0 gerado com sucesso. Verificados os
+  campos estruturados e os caminhos de .env embutidos como nulos.
+  Comando repetível acrescentado: npm.cmd run generate:isolated.
+
+Testes locais:
+  npm.cmd test
+  Resultado: 62 aprovados, zero falhas e zero ignorados.
+  Inclui 57 testes existentes e 5 novos de contratos, coerência e serialização.
+
+Proteções de migração/ligação:
+  node --test tests/migrationPreparation.test.js
+  Resultado: 6 aprovados, zero falhas e zero ignorados.
+
+HTTP e persistência real:
+  node --test tests/structuredBackend.integration.test.js
+  Resultado final: 11 aprovados (teste exterior e 10 subtestes), zero falhas
+  e zero ignorados.
+
+Destino exclusivo: 127.0.0.1:55432/agromarkt_test.
+Foram usadas apenas variáveis específicas de testes no processo, sem
+fallback para ligação de produção e sem registar credenciais.
+
+Os testes usaram Express, rotas, middlewares e controladores reais, com
+cliente Prisma explicitamente ligado à base autorizada. Dados sintéticos
+identificados por prefixo aleatório, emails example.test e IDs próprios.
+Limpeza restrita aos utilizadores/produtos/encomendas do ensaio, confirmada.
+Não houve reset da base, eliminação de dados alheios ou repetição do teste
+operacional que exige base vazia.
+
+Verificados: permissões, registo público de admin rejeitado, entradas
+inválidas/contraditórias, decimais como strings, edição parcial, bloqueio de
+bypass legado, frações, snapshots, legado/estado em revisão, total arredondado
+zero, persistência na precisão máxima e ausência de reserva/desconto de stock.
+
+Outras verificações:
+  node --check dos ficheiros JavaScript pertinentes: aprovado após corrigir
+  os caminhos do comando.
+  git diff --check: sem erros de espaços.
+  Revisão do diff: frontend, configuração de ligação normal, server.js,
+  esquema e migrações preservados nesta fase.
+
+Total das verificações de testes: 79 aprovados, zero falhas e zero ignorados.
+Este relatório foi guardado posteriormente, sem repetir testes.
+
+4. ERROS ENCONTRADOS E CORRIGIDOS
+
+- A primeira tentativa de invocar diretamente o ficheiro JavaScript do
+  gerador Prisma bloqueou no Windows. A tentativa terminou sem sucesso e a
+  remoção da pasta temporária encontrou EBUSY. O script foi corrigido para
+  invocar o gerador explicitamente através de Node e não ocultar a falha
+  original com o erro de limpeza. A geração seguinte terminou com sucesso;
+  os testes HTTP usaram o cliente atualizado. Não houve acesso a dados reais.
+- Uma verificação de sintaxe usou caminhos com backend duplicado, causando
+  MODULE_NOT_FOUND. Os caminhos foram corrigidos e a verificação passou.
+- O Git apresentou avisos de acesso ao ficheiro global de exclusões e de
+  normalização LF/CRLF. Não eram falhas dos testes nem erros de espaços.
+
+Não houve falhas nos testes locais ou de persistência executados.
+
+5. DOCUMENTAÇÃO E PENDÊNCIAS
+
+Contratos, respostas, compatibilidade temporária e ordem de ativação:
+  docs/fase-2a3-backend.md
+Progresso e plano atualizados:
+  docs/progresso.md
+  docs/plano-implementacao.md
+
+Pendências:
+  - Revisão do diff 2A.3 e ativação coordenada num ambiente autorizado.
+  - Frontend para unidade explícita, strings decimais e snapshots históricos.
+  - Definição de limites comerciais; nenhum teto foi inventado.
+  - Planeamento do fim do contrato legado, que ainda usa Float/cálculo
+    anterior quando não existem dados estruturados.
+  - Revisão/conversão do legado numa entrega própria, sem inventar unidades
+    ou histórico.
+  - Stock, concorrência e idempotência na fase 2B.
+  - Transições e preservação do histórico nas remoções na fase 2C.
+  - Verificação de contas administrativas existentes antes de publicação.
+
+A imutabilidade de snapshots nesta entrega cobre criação/atualização, não
+resolve o comportamento administrativo antigo de apagar encomendas nas
+remoções. Isso permanece explicitamente pendente para a 2C.
+
+Sem alterações à produção, .env ou frontend; sem conversão de dados antigos,
+implementação de stock, push ou deploy. O único commit desta tarefa foi o
+autorizado para a fase 2A.2; a implementação 2A.3 permanece sem commit.
+
+Não são incluídas credenciais neste relatório.

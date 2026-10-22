@@ -71,6 +71,17 @@ Plataforma para aproximar agricultores/vendedores e compradores de produtos agr�
 - Testes reais desta etapa: **57 testes locais + 6 de preparação + 1 integração sintética com ROLLBACK + 1 ensaio operacional Prisma = 65 aprovados, zero falhas e zero ignorados**. `git diff --check` aprovado. Nenhuma migração precisou de correção.
 - Atualizados o procedimento e este progresso; o novo teste operacional fica sem commit. Os ficheiros anteriores pendentes foram preservados. Sem acesso a produção, conversão de dados reais, alterações de API/frontend/stock, geração do cliente, commit, push ou deploy da aplicação.
 
+## Fase 2A.3 — integração do backend
+
+- Fase 2A.2 guardada em commit local `923acc6` (`test: validar migracao comercial em PostgreSQL`), apenas com os nove ficheiros correspondentes. Implementação 2A.3 deixada sem commit para revisão.
+- Cliente Prisma 5.22.0 atualizado por geração isolada, sem carregar .env ou ligação real. Script repetível `npm.cmd run generate:isolated`; artefactos em node_modules, não versionados.
+- Controladores usam validações/cálculos decimais no fluxo estruturado e devolvem novas quantidades/preços/totais como strings fixas. Quatro campos comerciais coerentes exigidos; projeções legadas sincronizadas; contradições e mudanças comerciais apenas pelo legado são rejeitadas. Contrato antigo mantém-se temporariamente.
+- Encomendas estruturadas obtêm participantes/dados comerciais no servidor, guardam snapshots e não permitem a sua alteração. Produto antigo incompleto continua consultável, mas pedido estruturado devolve HTTP 409; não há conversão nem histórico inventado. Produtos em revisão não geram novas encomendas.
+- Permissões 1A/1B mantidas. Pendentes não reservam/comparam/descontam disponibilidade; nenhum stock/transição foi implementado. Frontend não foi alterado.
+- Testes: 62 locais, 6 de preparação/proteções e 11 HTTP/persistência real (10 subtestes e um exterior) na base local autorizada; dados sintéticos identificáveis e limpeza restrita ao próprio ensaio, confirmada. `git diff --check` aprovado. Não repetido o ensaio de base vazia.
+- Contratos, compatibilidade temporária, tipos, snapshots, limites e ordem de ativação em [fase-2a3-backend.md](fase-2a3-backend.md). O legado continua Float sem snapshots, enquanto o fluxo estruturado usa Decimal exato; campos antigos são apenas projeções neste último.
+- Pendentes frontend/ativação coordenada, fim do contrato legado, limites comerciais, stock/concorrência/idempotência (2B), transições/preservação nas remoções (2C). Sem produção, alteração de .env, push ou deploy.
+
 ## Pendências e produção
 
 - Implementar conversão de comprador para vendedor.

@@ -1,6 +1,6 @@
 # Plano de implementação do AgroMarket
 
-Documento para revisão. As fases 1A e 1B estão concluídas localmente. A 2A.1 tem funções decimais e esquema aditivo preparados, sem migração ou integração; as restantes etapas são propostas, sem autorização implícita para migrações ou publicação.
+Documento para revisão. As fases 1A/1B, 2A.1 e a validação local da migração 2A.2 estão concluídas. A integração do backend 2A.3 está implementada sem commit para revisão. As restantes etapas são propostas, sem autorização implícita para produção ou publicação.
 
 ## Etapas e critérios de conclusão
 
@@ -10,7 +10,8 @@ Documento para revisão. As fases 1A e 1B estão concluídas localmente. A 2A.1 
 | 1B — concluída | Publicação por vendedor/admin; validação de campos, IDs, preços, quantidades, totais e estados. Commit `7074ce2`. | 39 testes aprovados com dependências simuladas; permissões mantidas; `git diff --check` aprovado. |
 | 2A | Quantidade numérica, unidade explícita, dinheiro decimal e cópias históricas na encomenda. Ver [fase-2a-dados.md](fase-2a-dados.md). | Contratos e precisão definidos; testes de cálculos e migração isolada aprovados; legado ambíguo preservado e identificado. |
 | 2A.1 — concluída localmente | Funções puras com Decimal do Prisma instalado; campos opcionais e enums no esquema, sem aplicação. | 57 testes aprovados, incluindo precisão/escala/unidades e validação estática isolada; controladores/frontend intactos. |
-| 2A.2 — pendente | Integrar contratos/controladores/formulários; preparar e ensaiar migração aditiva e revisão do legado em ambiente isolado autorizado. | Decimais preservados de ponta a ponta, unidade explícita e dados antigos não inventados; recuperação testada. |
+| 2A.2 — validação concluída localmente | Migração aditiva, integração SQL e migrate deploy/status/diff na base local autorizada. Commit `923acc6`. | Duas migrações concluídas, segundo deploy sem alterações e CHECKs confirmados; sem produção. |
+| 2A.3 — backend implementado para revisão | Cliente atualizado isoladamente, contratos estruturados, projeções legadas, snapshots e testes HTTP/persistência. Ver [fase-2a3-backend.md](fase-2a3-backend.md). | 62 testes locais e 11 HTTP/persistência aprovados, sem alterar frontend, converter legado ou implementar stock. |
 | 2B | Descontar stock na aceitação, numa transação com atualização condicional e proteção contra concorrência e repetição. | Duas aceitações concorrentes não excedem stock; repetir a mesma aceitação desconta uma única vez; falha reverte toda a operação. |
 | 2C | Definir transições, registar eventos de estado e preservar encomendas quando produtos/contas são removidos. | Transições autorizadas e testadas; histórico mantém os dados da compra; remoções administrativas não apagam encomendas. |
 | 3A | Perfil e passagem de comprador para vendedor. Atualizar sessão/permissões de forma segura. | Comprador passa pelo fluxo definido antes de publicar; não pode atribuir admin; sessões refletem a alteração conforme política definida. |

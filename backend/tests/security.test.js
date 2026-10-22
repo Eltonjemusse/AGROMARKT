@@ -13,6 +13,8 @@ function loadController(filename, dependencies) {
     console,
     require(name) {
       if (name === '../utils/validation') return require('../src/utils/validation');
+      if (name === '../utils/structuredCommerce') return require('../src/utils/structuredCommerce');
+      if (name === '../utils/commercialDecimals') return require('../src/utils/commercialDecimals');
       if (!Object.prototype.hasOwnProperty.call(dependencies, name)) {
         throw new Error(`Unexpected dependency: ${name}`);
       }
