@@ -111,11 +111,19 @@ Plataforma para aproximar agricultores/vendedores e compradores de produtos agr�
 - Stock/estados guardados em `78c865a`. Remoções administrativas deixam de apagar encomendas: contas/produtos referenciados devolvem 409 e motivo de preservação; a interface desativa a ação e explica. Conta sem histórico remove só produtos não referenciados e conta, numa transação. As FKs RESTRICT já existentes protegem a corrida após a verificação; sem migração adicional ou arquivo genérico.
 - 64 testes backend, 20 HTTP/PostgreSQL e 22 frontend aprovados, incluindo encomenda inserida durante remoção de conta: FK impede remoção e transação preserva conta/produto/encomenda. Dados antigos e snapshots mantidos, limpeza sintética confirmada; lint dos ficheiros alterados aprovado. O efeito assíncrono de Admin foi corrigido; resta o erro antigo em Produtos.
 
+## Versão funcional — interface essencial e entrega local
+
+- Histórico guardado em `c82fc31`; correção de concorrência dos ecos legados em `57f0580`. Corrigido o último erro de lint (Produtos), com erro/repetição do catálogo. Registo/login têm labels/autocomplete, mensagens de erro e controlo de senha; retirada a opção de lembrar email que não recuperava o valor e a aceitação fictícia de termos ainda indisponíveis.
+- Relatórios/configurações desativados e páginas institucionais/recuperação de senha identificadas como indisponíveis; rota inexistente tem saída para catálogo. Retiradas designações de conta «verificada» e números/parceiros de demonstração. Nenhuma passagem automática para vendedor; registo legítimo de vendedor e comprador e permissões confirmados por HTTP.
+- Ajustes de telemóvel: box-sizing, campos sem largura mínima excessiva, grelhas de uma coluna, tabelas com scroll local, botões de encomenda empilhados, alvos de 44px, foco visível e idioma pt-MZ. Ferramenta sem navegador/aplicações e tentativa iab recusada: **desktop/telemóvel e percurso clicado continuam sem aprovação visual**, apesar de renderização estática testada.
+- Resultados finais: **65 backend + 20 HTTP/PostgreSQL + 24 frontend aprovados**, zero falhas/ignorados; build, lint completo e git diff --check aprovados. Percurso real HTTP: registar/iniciar sessão → publicar/consultar → comprar fração → consultar compra/venda → editar → aceitar/descontar → entregar, com snapshots mantidos. Limpeza só dos dados sintéticos confirmada; sem produção, .env, push ou deploy. Não foram instaladas dependências.
+- Antes de publicação autorizada: testar manualmente desktop/telemóvel/teclado; verificar contas admin e tokens existentes em operação separada; preparar termos/privacidade e confirmar limites comerciais/revisão do legado. Confirmar destino/configuração e cópia recuperável; suspender escritas durante atualização esquema → cliente Prisma → backend com stock/estados → frontend compatível, verificar percurso e só depois reabrir. Recuperação deve manter esquema/histórico e uma versão compatível com o desconto único, sem regressar ao backend que aceita estados livremente.
+
 ## Pendências e produção
 
-- Implementar conversão de comprador para vendedor.
+- Definir aprovação/passagem de comprador para vendedor; sem conversão automática nesta versão. O registo público legítimo de vendedor existente continua funcional.
 - Validar o novo percurso no navegador em computador/telemóvel; revisão visual geral e acessibilidade nas fases 4A/4B. Unidade estruturada e adaptação funcional das quantidades estão implementadas localmente na 2A.4.
 - Cancelamento após aceitação continua fora desta versão; finais não reabrem. Stock/estados e bloqueio de remoções com histórico já implementados/testados.
-- Resolver o erro antigo de lint que resta em Produtos.jsx, no bloco de interface essencial.
+- Lint completo agora aprovado. Recuperação de senha, perfil, imagens e páginas institucionais continuam fora desta entrega e as ações incompletas estão retiradas/desativadas.
 - **A produção ainda não recebeu estas correções.**
 - Antes da publicação, verificar a legitimidade das contas administrativas existentes e avaliar os tokens já emitidos. Essa verificação continua pendente: não consultar nem alterar dados de produção nesta etapa.

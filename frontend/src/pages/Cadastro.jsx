@@ -4,6 +4,7 @@ import { Eye, EyeOff, ChevronDown } from 'lucide-react';
 
 import api from '../services/api';
 import Navbar from '../components/Navbar';
+import UnavailableLink from '../components/UnavailableLink';
 
 function Cadastro() {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ function Cadastro() {
 
   const [loading, setLoading] = useState(false);
   const [mostrarSenha, setMostrarSenha] = useState(false);
-  const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
     setForm({
@@ -30,11 +31,7 @@ function Cadastro() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!aceitouTermos) {
-      alert('Precisas concordar com os Termos de Serviço e Política de Privacidade.');
-      return;
-    }
-
+    setError('');
     setLoading(true);
 
     try {
@@ -49,8 +46,7 @@ function Cadastro() {
       alert('Conta criada com sucesso!');
       navigate('/login');
     } catch (error) {
-      console.log('ERRO CADASTRO:', error);
-      alert(error.response?.data?.message || 'Erro ao cadastrar');
+      setError(error.response?.data?.message || 'Não foi possível criar a conta. Tenta novamente.');
     } finally {
       setLoading(false);
     }
@@ -71,8 +67,10 @@ function Cadastro() {
 
             <form onSubmit={handleSubmit} className="register-form">
               <div className="register-group">
-                <label>Nome Completo</label>
+                <label htmlFor="register-name">Nome completo</label>
                 <input
+                  id="register-name"
+                  autoComplete="name"
                   type="text"
                   name="nome"
                   placeholder="Ex: João Silva"
@@ -83,8 +81,10 @@ function Cadastro() {
               </div>
 
               <div className="register-group">
-                <label>E-mail</label>
+                <label htmlFor="register-email">Email</label>
                 <input
+                  id="register-email"
+                  autoComplete="email"
                   type="email"
                   name="email"
                   placeholder="seu@email.com"
@@ -95,10 +95,12 @@ function Cadastro() {
               </div>
 
               <div className="register-group">
-                <label>Senha</label>
+                <label htmlFor="register-password">Senha</label>
 
                 <div className="register-password-box">
                   <input
+                    id="register-password"
+                    autoComplete="new-password"
                     type={mostrarSenha ? 'text' : 'password'}
                     name="senha"
                     placeholder="••••••••"
@@ -110,6 +112,7 @@ function Cadastro() {
                   <button
                     type="button"
                     className="toggle-password-btn"
+                    aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
                     onClick={() => setMostrarSenha(!mostrarSenha)}
                   >
                     {mostrarSenha ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -118,21 +121,24 @@ function Cadastro() {
               </div>
 
               <div className="register-group">
-                <label>Telefone / WhatsApp</label>
+                <label htmlFor="register-phone">Telefone / WhatsApp</label>
                 <input
-                  type="text"
+                  id="register-phone"
+                  autoComplete="tel"
+                  type="tel"
                   name="telefone"
-                  placeholder="(00) 00000-0000"
+                  placeholder="+258 ..."
                   value={form.telefone}
                   onChange={handleChange}
                 />
               </div>
 
               <div className="register-group">
-                <label>Tipo de Usuário</label>
+                <label htmlFor="register-role">Tipo de conta</label>
 
                 <div className="register-select-box">
                   <select
+                    id="register-role"
                     name="tipo"
                     value={form.tipo}
                     onChange={handleChange}
@@ -145,17 +151,8 @@ function Cadastro() {
                 </div>
               </div>
 
-              <label className="terms-row">
-                <input
-                  type="checkbox"
-                  checked={aceitouTermos}
-                  onChange={(e) => setAceitouTermos(e.target.checked)}
-                />
-                <span>
-                  Eu concordo com os <strong>Termos de Serviço</strong> e{' '}
-                  <strong>Política de Privacidade</strong>.
-                </span>
-              </label>
+              <p className="field-help">Termos de serviço e política de privacidade em preparação.</p>
+              {error && <p role="alert" className="form-error">{error}</p>}
 
               <button
                 type="submit"
@@ -184,10 +181,10 @@ function Cadastro() {
           </div>
 
           <div className="register-footer-links">
-            <Link to="/">Sobre Nós</Link>
-            <Link to="/">Privacidade</Link>
-            <Link to="/">Termos</Link>
-            <Link to="/">Suporte</Link>
+            <UnavailableLink>Sobre nós</UnavailableLink>
+            <UnavailableLink>Privacidade</UnavailableLink>
+            <UnavailableLink>Termos</UnavailableLink>
+            <UnavailableLink>Suporte</UnavailableLink>
           </div>
         </div>
       </footer>

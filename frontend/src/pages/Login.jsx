@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 import api from '../services/api';
 import Navbar from '../components/Navbar';
+import UnavailableLink from '../components/UnavailableLink';
 
 function Login() {
   const navigate = useNavigate();
@@ -14,7 +15,8 @@ function Login() {
   });
 
   const [loading, setLoading] = useState(false);
-  const [lembrar, setLembrar] = useState(false);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
     setForm({
@@ -25,6 +27,7 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
 
     try {
@@ -39,15 +42,10 @@ function Login() {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
 
-      if (lembrar) {
-        localStorage.setItem('rememberEmail', form.email);
-      }
-
       alert('Login realizado com sucesso!');
       navigate('/dashboard');
     } catch (error) {
-      console.log('ERRO LOGIN:', error);
-      alert(error.response?.data?.message || 'Erro ao fazer login');
+      setError(error.response?.data?.message || 'Não foi possível iniciar sessão. Tenta novamente.');
     } finally {
       setLoading(false);
     }
@@ -67,10 +65,12 @@ function Login() {
 
             <form onSubmit={handleSubmit} className="login-form">
               <div className="form-group">
-                <label>Email</label>
+                <label htmlFor="login-email">Email</label>
                 <div className="input-icon-box">
                   <Mail size={20} />
                   <input
+                    id="login-email"
+                    autoComplete="username"
                     type="email"
                     name="email"
                     placeholder="seu@email.com"
@@ -83,32 +83,28 @@ function Login() {
 
               <div className="form-group">
                 <div className="label-row">
-                  <label>Senha</label>
-                  <span className="forgot-link">Esqueceu a senha?</span>
+                  <label htmlFor="login-password">Senha</label>
                 </div>
 
                 <div className="input-icon-box">
                   <Lock size={20} />
                   <input
-                    type="password"
+                    id="login-password"
+                    autoComplete="current-password"
+                    type={mostrarSenha ? 'text' : 'password'}
                     name="senha"
                     placeholder="••••••••"
                     value={form.senha}
                     onChange={handleChange}
                     required
                   />
-                  <Eye size={20} />
+                  <button type="button" className="password-toggle" aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                    onClick={() => setMostrarSenha(!mostrarSenha)}>{mostrarSenha ? <EyeOff size={20} /> : <Eye size={20} />}</button>
                 </div>
               </div>
 
-              <label className="remember-row">
-                <input
-                  type="checkbox"
-                  checked={lembrar}
-                  onChange={(e) => setLembrar(e.target.checked)}
-                />
-                <span>Lembrar de mim</span>
-              </label>
+              <p className="field-help">Recuperação de senha indisponível nesta versão.</p>
+              {error && <p role="alert" className="form-error">{error}</p>}
 
               <button type="submit" className="login-main-btn" disabled={loading}>
                 {loading ? 'A entrar...' : 'Entrar'}
@@ -138,14 +134,14 @@ function Login() {
 
           <div>
             <h3>Institucional</h3>
-            <Link to="/">Sobre nós</Link>
-            <Link to="/">Contato</Link>
+            <UnavailableLink>Sobre nós</UnavailableLink>
+            <UnavailableLink>Contacto institucional</UnavailableLink>
           </div>
 
           <div>
             <h3>Legal</h3>
-            <Link to="/">Política de Privacidade</Link>
-            <Link to="/">Termos de Uso</Link>
+            <UnavailableLink>Política de Privacidade</UnavailableLink>
+            <UnavailableLink>Termos de Uso</UnavailableLink>
           </div>
         </div>
       </footer>

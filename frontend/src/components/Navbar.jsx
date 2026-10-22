@@ -28,13 +28,14 @@ function Navbar() {
       <button
         className="menu-toggle"
         onClick={() => setMenuOpen(!menuOpen)}
-        aria-label="Abrir menu"
+        aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
+        aria-controls="main-navigation"
         aria-expanded={menuOpen}
       >
         ☰
       </button>
 
-      <div className={`nav-links ${menuOpen ? 'active' : ''}`}>
+      <div id="main-navigation" className={`nav-links ${menuOpen ? 'active' : ''}`}>
         <Link to="/produtos" onClick={closeMenu}>
           Produtos
         </Link>

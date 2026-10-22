@@ -26,6 +26,11 @@ test('vistas comerciais respeitam permissões, unidades e dados históricos', as
     const DeleteAction = await load('components/DeleteAction');
     const ProductCommercial = await load('components/ProductCommercial');
     const ProductFields = await load('components/ProductFields');
+    const Login = await load('pages/Login');
+    const Cadastro = await load('pages/Cadastro');
+    const Dashboard = await load('pages/Dashboard');
+    const Home = await load('pages/Home');
+    const NotFound = await load('pages/NotFound');
     const { productFormValues } = await import('../src/utils/commercial.js');
     const render = (Component, props = {}) => renderToStaticMarkup(
       React.createElement(MemoryRouter, null, React.createElement(Component, props)));
@@ -111,6 +116,35 @@ test('vistas comerciais respeitam permissões, unidades e dados históricos', as
       assert.match(blocked, /disabled=""/);
       assert.match(blocked, /<p[^>]*>Remoção bloqueada: preservar encomendas associadas\./);
       assert.doesNotMatch(render(DeleteAction, { onDelete: () => {} }), /disabled/);
+    });
+
+    await t.test('registo/login têm campos identificados, senhas e tipos de conta legítimos', () => {
+      const login = render(Login);
+      assert.match(login, /for="login-email"/);
+      assert.match(login, /autoComplete="current-password"/);
+      assert.match(login, /aria-label="Mostrar senha"/);
+      assert.match(login, /Recuperação de senha indisponível/);
+      assert.doesNotMatch(login, /Lembrar de mim/);
+      const registration = render(Cadastro);
+      assert.match(registration, /for="register-email"/);
+      assert.match(registration, /autoComplete="new-password"/);
+      assert.match(registration, /option value="vendedor"/);
+      assert.match(registration, /option value="comprador"/);
+      assert.doesNotMatch(registration, /option value="admin"|type="checkbox"/);
+      assert.match(registration, /Termos de serviço e política de privacidade em preparação/);
+    });
+
+    await t.test('ações incompletas estão desativadas e páginas inexistentes têm saída para o catálogo', () => {
+      const dashboard = render(Dashboard);
+      assert.match(dashboard, /<button[^>]*disabled=""[^>]*>[\s\S]*?Relatórios — indisponível/);
+      assert.match(dashboard, /Configurações — indisponível/);
+      assert.doesNotMatch(dashboard, /Comprador Verificado|Vendedor Verificado/);
+      for (const Component of [Dashboard, Home, Login, Cadastro]) {
+        assert.doesNotMatch(render(Component), /href="\/(sobre|termos|privacidade)"/);
+      }
+      const missing = render(NotFound);
+      assert.match(missing, /Página não disponível/);
+      assert.match(missing, /href="\/produtos"/);
     });
   } finally {
     await vite.close();

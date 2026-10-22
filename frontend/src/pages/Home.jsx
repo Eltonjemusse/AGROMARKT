@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import UnavailableLink from '../components/UnavailableLink';
 
 function Home() {
   return (
@@ -47,16 +48,6 @@ function Home() {
           </div>
         </section>
 
-        <section className="partners-section">
-          <p>PLATAFORMA UTILIZADA POR MAIS DE 5.000 PRODUTORES</p>
-
-          <div className="partners-list">
-            <span>AGRICULTURA X</span>
-            <span>FAZENDA REAL</span>
-            <span>GREEN FIELD</span>
-            <span>AGRO VIVA</span>
-          </div>
-        </section>
       </main>
 
       <footer className="home-footer">
@@ -71,9 +62,9 @@ function Home() {
 
           <div>
             <h3>Links Úteis</h3>
-            <Link to="/sobre">Sobre nós</Link>
-            <Link to="/privacidade">Política de Privacidade</Link>
-            <Link to="/termos">Termos de Uso</Link>
+            <UnavailableLink>Sobre nós</UnavailableLink>
+            <UnavailableLink>Política de Privacidade</UnavailableLink>
+            <UnavailableLink>Termos de Uso</UnavailableLink>
           </div>
 
           <div>

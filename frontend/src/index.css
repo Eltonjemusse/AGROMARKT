@@ -1,3 +1,5 @@
+*, *::before, *::after { box-sizing: border-box; }
+
 body {
   margin: 0;
   font-family: Arial, sans-serif;
@@ -1875,4 +1877,38 @@ th {
   .register-card h1 {
     font-size: 23px;
   }
+}
+
+/* Utilização essencial em ecrãs pequenos; revisão visual geral continua na fase 4. */
+button:disabled { cursor: not-allowed; opacity: 0.65; }
+input, select, textarea { min-width: 0; }
+img { max-width: 100%; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid #155d3a;
+  outline-offset: 3px;
+}
+.input-icon-box:focus-within { outline: 3px solid #155d3a; outline-offset: 3px; }
+.password-toggle { background: transparent; color: #155d3a; padding: 8px; flex-shrink: 0; }
+.input-icon-box input { min-width: 0; }
+.field-help { font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.unavailable-link { display: block; color: #59665e; margin: 8px 0; font-size: 14px; }
+.quick-card.unavailable-action { text-align: left; color: #33443a; }
+.modal-bg { box-sizing: border-box; z-index: 1200; }
+.order-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.order-actions p { flex-basis: 100%; }
+.order-actions .danger-btn { margin-left: 0; }
+.table-card { max-width: 100%; }
+.dashboard-container, .dashboard-top-grid > *, .orders-dashboard-grid > *, .products-grid > * { min-width: 0; }
+.user-info, .user-details-grid strong, .register-footer-links, .dashboard-footer-grid { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  input, select, textarea { font-size: 16px; }
+  button, .nav-links a { min-height: 44px; }
+  .products-grid { grid-template-columns: minmax(0, 1fr); }
+  .product-details { width: 100%; }
+  .table-card { padding: 12px; }
+  .table-card table { min-width: 540px; }
+  .label-row { flex-wrap: wrap; }
+  .order-actions { flex-direction: column; }
+  .order-actions button { width: 100%; }
+  .register-footer-links { align-items: flex-start; }
 }

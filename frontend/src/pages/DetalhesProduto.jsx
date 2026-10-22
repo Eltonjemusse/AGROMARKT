@@ -66,6 +66,7 @@ function DetalhesProduto() {
               user && String(user.id) === String(product.userId) ? <p>Este produto é teu. Só podes encomendar produtos de outros vendedores.</p> :
               !loggedIn ? <p><Link to="/login">Inicia sessão</Link> para encomendar.</p> : (
                 <form onSubmit={fazerPedido} className="commercial-form">
+                  <p>O pedido fica pendente. O vendedor confirma a disponibilidade ao aceitar.</p>
                   <label>
                     Quantidade desejada ({product.unidade})
                     <input type="text" inputMode={['kg', 'litro'].includes(product.unidade) ? 'decimal' : 'numeric'}

@@ -13,6 +13,7 @@ import {
 import Navbar from '../components/Navbar';
 import OrderCommercial from '../components/OrderCommercial';
 import OrderActions from '../components/OrderActions';
+import UnavailableLink from '../components/UnavailableLink';
 import { canPublish } from '../utils/commercial';
 import api from '../services/api';
 
@@ -103,8 +104,8 @@ function Dashboard() {
                   {user.tipo === 'admin'
                     ? 'Administrador'
                     : user.tipo === 'vendedor'
-                    ? 'Vendedor Verificado'
-                    : 'Comprador Verificado'}
+                    ? 'Vendedor'
+                    : 'Comprador'}
                 </span>
 
                 <h2>Dados do utilizador</h2>
@@ -244,19 +245,19 @@ function Dashboard() {
             </Link>
             </>}
 
-            <Link to="/dashboard" className="quick-card">
+            <button type="button" disabled className="quick-card unavailable-action">
               <span className="quick-icon red">
                 <BarChart3 size={22} />
               </span>
-              <p>Relatórios</p>
-            </Link>
+              <p>Relatórios — indisponível</p>
+            </button>
 
-            <Link to="/dashboard" className="quick-card">
+            <button type="button" disabled className="quick-card unavailable-action">
               <span className="quick-icon teal">
                 <Settings size={22} />
               </span>
-              <p>Configurações</p>
-            </Link>
+              <p>Configurações — indisponível</p>
+            </button>
           </section>
         </div>
       </main>
@@ -273,10 +274,10 @@ function Dashboard() {
 
           <div>
             <h3>Links rápidos</h3>
-            <Link to="/">Sobre nós</Link>
-            <Link to="/">Política de Privacidade</Link>
-            <Link to="/">Termos de Uso</Link>
-            <Link to="/">Contato</Link>
+            <UnavailableLink>Sobre nós</UnavailableLink>
+            <UnavailableLink>Política de Privacidade</UnavailableLink>
+            <UnavailableLink>Termos de Uso</UnavailableLink>
+            <UnavailableLink>Contacto institucional</UnavailableLink>
           </div>
 
           <div>

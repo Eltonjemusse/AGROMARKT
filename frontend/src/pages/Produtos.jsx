@@ -8,22 +8,17 @@ function Produtos() {
   const [search, setSearch] = useState('');
   const [categoria, setCategoria] = useState('');
   const [loading, setLoading] = useState(true);
-
-  const carregarProdutos = async () => {
-    try {
-      const response = await api.get('/products');
-      setProducts(response.data);
-    } catch (error) {
-      console.log(error);
-      alert('Erro ao carregar produtos');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [error, setError] = useState('');
+  const [revision, setRevision] = useState(0);
 
   useEffect(() => {
-    carregarProdutos();
-  }, []);
+    let active = true;
+    api.get('/products')
+      .then(({ data }) => { if (active) setProducts(data); })
+      .catch(() => { if (active) setError('Não foi possível carregar o catálogo. Tenta novamente.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [revision]);
 
   const produtosFiltrados = products.filter((product) => {
     const matchSearch =
@@ -52,6 +47,7 @@ function Produtos() {
 
         <div className="filters-card">
           <input
+            aria-label="Pesquisar produtos"
             type="text"
             placeholder="Pesquisar por nome, descrição ou localização..."
             value={search}
@@ -59,6 +55,7 @@ function Produtos() {
           />
 
           <select
+            aria-label="Filtrar categoria"
             value={categoria}
             onChange={(e) => setCategoria(e.target.value)}
           >
@@ -82,9 +79,12 @@ function Produtos() {
           </button>
         </div>
 
+        {error && <div role="alert" className="form-error"><p>{error}</p><button type="button" onClick={() => {
+          setError(''); setLoading(true); setRevision((value) => value + 1);
+        }}>Tentar novamente</button></div>}
         {loading ? (
           <p>A carregar produtos...</p>
-        ) : produtosFiltrados.length === 0 ? (
+        ) : error ? null : produtosFiltrados.length === 0 ? (
           <p>Nenhum produto encontrado.</p>
         ) : (
           <>
