@@ -40,6 +40,37 @@ Plataforma para aproximar agricultores/vendedores e compradores de produtos agr�
 - `npm.cmd test`: **57 testes aprovados, zero falhas**. Validação estática do esquema aprovada em pasta temporária com URL fictícia e sem carregar `.env`/configuração do projeto; `git diff --check` aprovado.
 - Controladores, contratos e frontend continuam os da 1B. A 2A.2 deve integrar os decimais/formulários e preparar ensaios de migração isolada. Não foi implementado stock, conversão de legado ou acesso a produção. Entrega local 2A.1: `feat: preparar quantidades e valores decimais`, sem push ou deploy. Os dois documentos de planeamento foram preservados e atualizados.
 
+## Preparação da migração 2A.2
+
+- Migração SQL aditiva e transacional preparada após a inicial PostgreSQL, com enums/13 campos opcionais e CHECKs de limites, positividade, unidades inteiras e coerência condicional. Sem defaults, backfill ou alterações a relações/colunas antigas.
+- Testes de integração usam apenas `AGROMARKET_TEST_DATABASE_URL` e confirmação explícita de uma base local de testes; sem fallback, criação/reset de base ou .env. Todo o DDL de teste pertence a uma transação revertida.
+- Verificação inicial da preparação: 57 testes anteriores e 5 de preparação aprovados; nessa altura a integração ficou SKIP por falta de ligação. O ensaio real posterior está registado abaixo.
+- Procedimento e limites documentados em [fase-2a2-migracao.md](fase-2a2-migracao.md), incluindo o arredondamento NUMERIC antes dos CHECKs e ordem esquema → cliente → backend → frontend.
+- Ficheiros desta preparação sem commit. Nada aplicado a bases, sem integração dos novos campos, conversão de legado, stock, push ou deploy.
+
+## Ensaio real PostgreSQL da migração 2A.2
+
+- Base local descartável expressamente autorizada: `127.0.0.1:55432/agromarkt_test`. Contentor `agromarkt-postgres-test` em execução, com mapeamento exclusivo de `127.0.0.1:55432` para `5432/tcp` confirmado antes do SQL. Não se acedeu a produção.
+- Ligação configurada apenas no ambiente do processo com as variáveis específicas de testes, nome exato e confirmação explícita. Sem alteração de `.env`, sem fallback para DATABASE_URL e sem guardar/apresentar credenciais.
+- Ajustado o teste para aceitar exatamente o nome autorizado `agromarkt_test`. Como não existe psql no Windows, acrescentado transporte pelo psql já instalado no mesmo contentor: só aceita esse contentor/destino e verifica o mapeamento antes de usar o endpoint interno equivalente. Sem instalar ferramentas nem criar bases.
+- Executado `node --test tests/migrationPreparation.test.js`: **6 testes aprovados, zero falhas, zero ignorados**, incluindo as proteções do transporte Docker.
+- Executado `node --test tests/migration.integration.test.js` com a configuração específica: **1 integração real aprovada, zero falhas, zero ignorados**. O servidor confirmou o nome da base antes de qualquer DDL. A migração inicial, fixtures sintéticas legadas e corpo da migração aditiva correram num esquema único dentro de uma transação, terminada com ROLLBACK.
+- Verificados dados antigos integrais, relações/restrições anteriores, campos novos nulos e sem defaults, escritas legadas/estruturadas, coerência completa/parcial, unidades, positividade, NaN/overflow, totais e persistência exata NUMERIC(18,6)/NUMERIC(30,2). Confirmado também o arredondamento de escala do PostgreSQL; a rejeição do excesso significativo na entrada continua nos validadores puros.
+- Nenhuma correção ao SQL foi necessária. Alterados apenas helper/testes de integração/preparação e documentação. `git diff --check` aprovado. Os 57 testes anteriores não foram repetidos neste ensaio, pois o código comercial e o esquema não foram alterados.
+- A migração não ficou aplicada permanentemente; não foi ensaiado migrate deploy ou `_prisma_migrations`. Geração/ativação do cliente, contratos/backend/frontend, conversão de legado, stock e transições continuam pendentes. Sem commit, push ou deploy.
+
+## Validação operacional Prisma da migração 2A.2
+
+- Destino confirmado novamente: `127.0.0.1:55432/agromarkt_test`, contentor `agromarkt-postgres-test`, PostgreSQL 16.15. Antes da aplicação, consultas de leitura confirmaram ausência de relações/enums de utilizador: o ensaio anterior não deixou tabelas. Nenhuma limpeza foi necessária ou executada.
+- Acrescentado `tests/prismaDeploy.integration.test.js`, de execução explícita e com confirmação adicional `AGROMARKET_TEST_DEPLOY_CONFIRM=apply-versioned-migrations-local-only`. Recusa base não vazia, nunca cria/apaga/reinicializa bases e não integra o npm test normal.
+- Prisma instalado 5.22.0 executado numa pasta temporária isolada, com cópias binárias das migrações e esquema que referencia apenas `AGROMARKET_TEST_DATABASE_URL`. Não copiou/carregou o `.env`, `prisma.config.ts` ou configuração de produção; as credenciais ficaram só no processo.
+- Primeiro `migrate deploy --schema schema.prisma`: aprovado; migrações `20260528172609_init_postgres` e `20261022140000_add_structured_commercial_fields` aplicadas permanentemente apenas na base local descartável autorizada.
+- `_prisma_migrations`: exatamente duas entradas concluídas, sem rolled_back_at/logs de erro, passos aplicados positivos e checksums SHA-256 iguais aos ficheiros versionados. `migrate status`: base atualizada.
+- Segundo `migrate deploy`: sem migrações pendentes. Histórico completo, catálogo de colunas/enums/restrições e contagens de dados permaneceram iguais. As tabelas User/Product/Order ficaram vazias.
+- `migrate diff --from-schema-datasource schema.prisma --to-schema-datamodel schema.prisma --exit-code`: exit 0, sem diferenças nos objetos modelados pelo Prisma. Os 13 CHECKs SQL personalizados foram verificados separadamente no catálogo; não são representados integralmente pelo Prisma.
+- Testes reais desta etapa: **57 testes locais + 6 de preparação + 1 integração sintética com ROLLBACK + 1 ensaio operacional Prisma = 65 aprovados, zero falhas e zero ignorados**. `git diff --check` aprovado. Nenhuma migração precisou de correção.
+- Atualizados o procedimento e este progresso; o novo teste operacional fica sem commit. Os ficheiros anteriores pendentes foram preservados. Sem acesso a produção, conversão de dados reais, alterações de API/frontend/stock, geração do cliente, commit, push ou deploy da aplicação.
+
 ## Pendências e produção
 
 - Implementar conversão de comprador para vendedor.

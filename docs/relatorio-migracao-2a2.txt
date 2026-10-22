@@ -1,0 +1,192 @@
+RELATÓRIO — VALIDAÇÃO OPERACIONAL DA MIGRAÇÃO 2A.2
+
+Projeto: AgroMarket
+Ramo: melhorias-agromarkt
+Âmbito: última tarefa de validação com Prisma migrate deploy.
+Destino autorizado: 127.0.0.1:55432/agromarkt_test
+Contentor: agromarkt-postgres-test
+PostgreSQL confirmado: 16.15
+Prisma instalado utilizado: 5.22.0
+
+1. ISOLAMENTO E ESTADO INICIAL
+
+Foram consultados o procedimento e os testes já preparados, sem repetir a
+auditoria geral. O destino foi confirmado através das proteções existentes:
+contentor em execução, mapeamento exclusivo da porta local 55432 para 5432/tcp
+e nome da base conferido no servidor antes de qualquer DDL.
+
+A consulta inicial de leitura devolveu:
+  database: agromarkt_test
+  server_version: 16.15 (Debian 16.15-1.pgdg13+2)
+  relations: []
+  enums: []
+
+O teste anterior com ROLLBACK não deixou tabelas, vistas, sequências ou enums
+de utilizador. Não foram encontrados dados inesperados. Não houve limpeza,
+criação de base, reset ou alteração manual para esconder diferenças.
+
+2. CONFIGURAÇÃO USADA
+
+A ligação foi fornecida apenas no ambiente dos processos, através de
+AGROMARKET_TEST_DATABASE_URL. O seu valor e as credenciais não são registados
+neste relatório. Foram usados também:
+  AGROMARKET_TEST_DATABASE_NAME=agromarkt_test
+  AGROMARKET_TEST_DATABASE_CONFIRM=isolated-tests-only
+  AGROMARKET_TEST_DEPLOY_CONFIRM=apply-versioned-migrations-local-only
+  AGROMARKET_TEST_CONTAINER=agromarkt-postgres-test
+  AGROMARKET_TEST_DOCKER=<executável Docker local>
+
+O teste operacional criou uma pasta temporária fora do projeto, com cópias
+byte a byte das migrações e migration_lock.toml. Na cópia de schema.prisma,
+apenas a referência env("DATABASE_URL") foi substituída por
+env("AGROMARKET_TEST_DATABASE_URL").
+
+Não foram copiados ou carregados o .env existente, prisma.config.ts ou
+package.json do projeto nessa pasta. As variáveis herdadas de ligação de
+produção foram removidas do ambiente da CLI. Não houve fallback para
+DATABASE_URL nem gravação de credenciais em ficheiros. A pasta temporária
+foi removida depois das verificações.
+
+3. COMANDOS EXECUTADOS E RESULTADOS
+
+Inspeção local e leitura:
+  git branch --show-current
+  git status --short --branch
+  Get-Content dos documentos, testes, package.json e schema.prisma relevantes
+Resultado: ramo correto e alterações pendentes anteriores preservadas.
+
+Preflight PostgreSQL:
+  Script Node via stdin, usando testDatabaseConfig e psqlRunner existentes.
+  O helper inspecionou o contentor com docker inspect.
+  psql -X --no-password -At -v ON_ERROR_STOP=1 -c <consulta de leitura>
+  A consulta verificou current_database(), server_version e catálogos de
+  relações/enums de utilizador.
+Resultado: destino correto e base vazia, conforme descrito na secção 1.
+
+Verificação estática do novo teste:
+  node --check backend/tests/prismaDeploy.integration.test.js
+Resultado: exit 0.
+
+Ensaio operacional, a partir de backend, com confirmação específica apenas
+no processo:
+  node --test tests/prismaDeploy.integration.test.js
+Resultado: 1 teste aprovado, zero falhas e zero ignorados.
+
+Esse teste executou os comandos abaixo a partir da pasta temporária isolada,
+usando o executável Node e a CLI instalada no projeto:
+
+  node D:\AgroMarket\backend\node_modules\prisma\build\index.js migrate deploy --schema schema.prisma
+  Resultado: exit 0; duas migrações aplicadas permanentemente apenas na base
+  local descartável autorizada.
+
+  node D:\AgroMarket\backend\node_modules\prisma\build\index.js migrate status --schema schema.prisma
+  Resultado: exit 0; Database schema is up to date.
+
+  node D:\AgroMarket\backend\node_modules\prisma\build\index.js migrate deploy --schema schema.prisma
+  Resultado: exit 0; No pending migrations to apply.
+
+  node D:\AgroMarket\backend\node_modules\prisma\build\index.js migrate diff --from-schema-datasource schema.prisma --to-schema-datamodel schema.prisma --exit-code
+  Resultado: exit 0; sem diferenças nos objetos modelados pelo Prisma.
+  Comparação apenas de leitura, sem base sombra ou execução de SQL de diff.
+
+Verificações SQL de leitura realizadas pelo teste operacional:
+  - _prisma_migrations: nomes, IDs, checksums SHA-256, datas, logs e passos.
+  - Catálogo: colunas, enums, restrições e contagens das tabelas da aplicação.
+Resultado: histórico completo e catálogo iguais antes/depois do segundo
+deploy e do diff; 13 CHECKs personalizados presentes; tabelas vazias.
+
+Testes complementares executados a partir de backend:
+  npm.cmd test
+  Resultado: 57 testes aprovados, zero falhas e zero ignorados.
+
+  node --test tests/migrationPreparation.test.js
+  Resultado: 6 testes aprovados, zero falhas e zero ignorados.
+
+  node --test tests/migration.integration.test.js
+  Resultado: 1 integração PostgreSQL real aprovada, zero falhas e zero
+  ignorados. Usou as variáveis específicas de testes, sem a confirmação
+  adicional de aplicação permanente. Migração inicial, dados sintéticos
+  legados e migração aditiva foram exercitados num esquema aleatório,
+  terminado com ROLLBACK, sem alterar permanentemente o esquema público.
+
+Total da última tarefa: 65 testes aprovados, zero falhas e zero ignorados.
+
+Verificações Git finais:
+  git diff --check
+  git status --short --branch
+  git diff --cached --name-only
+  git diff HEAD -- backend/prisma/schema.prisma backend/prisma/migrations/20260528172609_init_postgres/migration.sql backend/src/controllers backend/src/routes frontend backend/package.json
+  git diff --no-index --check -- /dev/null backend/tests/prismaDeploy.integration.test.js
+  git diff --no-index --check -- /dev/null docs/fase-2a2-migracao.md
+Resultado: sem erros de espaços; sem ficheiros em staging; esquema,
+migração inicial, controladores, rotas, frontend e package.json inalterados
+nesta tarefa. As comparações --no-index assinalam diferenças por serem
+ficheiros novos; não apresentaram erros de espaços.
+
+4. MIGRAÇÕES CONCLUÍDAS E ESTADO FINAL DA BASE
+
+Entradas verificadas em _prisma_migrations:
+  20260528172609_init_postgres
+  20261022140000_add_structured_commercial_fields
+
+Ambas com finished_at preenchido, rolled_back_at nulo, passos aplicados
+positivos, sem logs de erro e checksums correspondentes aos ficheiros.
+Não foi necessário alterar os ficheiros SQL.
+
+A base local permanece com as migrações aplicadas e histórico concluído.
+User, Product e Order permaneceram vazias. A repetição do deploy não alterou
+histórico, estrutura ou contagens.
+
+O diff Prisma não representa integralmente os CHECKs personalizados. Por
+isso, os 13 CHECKs foram confirmados separadamente no catálogo. A integração
+sintética voltou a verificar restrições, preservação de legado e decimais.
+
+5. ERROS E AVISOS
+
+Não houve falhas nos comandos Prisma, testes ou verificações da última
+tarefa. Não foi necessário corrigir migrações nem ocultar divergências.
+
+Avisos do Git:
+  - Falta de permissão para ler o ficheiro global de exclusões do utilizador.
+  - Avisos de normalização futura de finais de linha LF para CRLF.
+Esses avisos não impediram a validação e não eram erros de espaços.
+
+O teste operacional exige base inicialmente vazia e confirmação específica.
+Uma nova execução integral sobre a base agora migrada será recusada antes
+de limpar ou modificar dados. A idempotência pedida já foi verificada pelo
+segundo migrate deploy dentro do ensaio concluído.
+
+6. FICHEIROS ALTERADOS NA ÚLTIMA TAREFA
+
+Criado:
+  backend/tests/prismaDeploy.integration.test.js
+
+Atualizados:
+  docs/progresso.md
+  docs/fase-2a2-migracao.md
+
+Preservados, sem alteração nesta tarefa, os ficheiros pendentes anteriores:
+  backend/prisma/migrations/20261022140000_add_structured_commercial_fields/migration.sql
+  backend/tests/fixtures/migration-2a.sql
+  backend/tests/helpers/migrationTestDatabase.js
+  backend/tests/migration.integration.test.js
+  backend/tests/migrationPreparation.test.js
+
+Este relatório é um novo ficheiro posterior à validação:
+  docs/relatorio-migracao-2a2.txt
+Foi escrito sem repetir os testes.
+
+7. PENDÊNCIAS E LIMITES DO ÂMBITO
+
+Ficam pendentes geração/ativação do cliente Prisma atualizado e integração
+futura dos campos decimais, unidades e snapshots nos contratos, backend e
+formulários. Continuam fora desta tarefa conversão/revisão de dados antigos,
+stock, transições e preservação do histórico nas remoções.
+
+A validação de excesso significativo de escala na entrada continua a exigir
+os validadores puros: NUMERIC(p,s) arredonda antes dos CHECKs.
+
+Aplicação noutros ambientes exige autorização própria e verificações de
+destino, histórico, cópias de segurança e recuperação. Produção não foi
+consultada ou alterada. O .env, API, frontend e stock permaneceram intactos.
+Não houve geração do cliente, commit, push ou deploy da aplicação.
