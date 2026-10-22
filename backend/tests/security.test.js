@@ -12,6 +12,7 @@ function loadController(filename, dependencies) {
     module,
     console,
     require(name) {
+      if (name === '../utils/validation') return require('../src/utils/validation');
       if (!Object.prototype.hasOwnProperty.call(dependencies, name)) {
         throw new Error(`Unexpected dependency: ${name}`);
       }
@@ -241,5 +242,205 @@ test('edição rejeita corpo ausente ou inválido', async () => {
     await updateProduct(editRequest(body), res);
     assert.equal(res.statusCode, 400);
     assert.equal(calls.updates, 0);
+  }
+});
+
+const invalidNumbers = [undefined, null, true, false, [], [1], {}, '', ' ', 'abc', '1kg', '0x10', 0, -1, NaN, Infinity, -Infinity, '1e999'];
+const invalidIds = [undefined, null, true, false, [], [1], {}, '', ' ', 'abc', '1.5', '1e1', '0x10', 0, -1, 1.5, NaN, Infinity, 2147483648, '9007199254740993'];
+const validProduct = {
+  nome: 'Tomate', descricao: 'Fresco', preco: 25, quantidade: '10 kg',
+  categoria: 'Hortaliças', localizacao: 'Maputo', imagem: ''
+};
+
+function marketplace(overrides = {}) {
+  const product = { id: 10, userId: 2, ...validProduct, ...overrides };
+  const order = { id: 20, sellerId: 2, buyerId: 3, status: 'pendente' };
+  const calls = [];
+  const record = (name, result) => async (args) => {
+    calls.push({ name, ...args });
+    return typeof result === 'function' ? result(args) : result;
+  };
+  const prisma = {
+    product: {
+      findUnique: record('product.findUnique', product),
+      create: record('product.create', ({ data }) => ({ id: 11, ...data })),
+      delete: record('product.delete', product)
+    },
+    order: {
+      create: record('order.create', ({ data }) => ({ id: 21, status: 'pendente', ...data })),
+      findUnique: record('order.findUnique', order),
+      findMany: record('order.findMany', []),
+      update: record('order.update', ({ data }) => ({ ...order, ...data })),
+      deleteMany: record('order.deleteMany', { count: 0 })
+    }
+  };
+  const dependencies = { '../config/prisma': prisma };
+  return {
+    products: loadController('productController.js', dependencies),
+    orders: loadController('orderController.js', dependencies),
+    admin: loadController('adminController.js', dependencies),
+    calls, product, order
+  };
+}
+
+test('publicação bloqueia compradores e tipos desconhecidos sem escrever dados', async () => {
+  for (const tipo of ['comprador', 'desconhecido', undefined]) {
+    const { products, calls } = marketplace();
+    const res = response();
+    await products.createProduct({ user: { id: 2, tipo }, body: validProduct }, res);
+    assert.equal(res.statusCode, 403);
+    assert.equal(calls.length, 0);
+  }
+});
+
+test('vendedor/admin publicam com proprietário autenticado e preço válido', async () => {
+  for (const tipo of ['vendedor', 'admin']) {
+    for (const preco of [12.5, '12.50']) {
+      const { products, calls } = marketplace();
+      const res = response();
+      await products.createProduct({ user: { id: 2, tipo }, body: { ...validProduct, preco, userId: 99, user: { connect: { id: 99 } } } }, res);
+      assert.equal(res.statusCode, 201);
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].name, 'product.create');
+      assert.deepEqual({ ...calls[0].data }, { ...validProduct, preco: 12.5, userId: 2 });
+    }
+  }
+});
+
+test('publicação rejeita campos obrigatórios sem texto válido', async () => {
+  for (const field of ['nome', 'descricao', 'quantidade', 'categoria', 'localizacao']) {
+    for (const value of [undefined, null, true, 123, [], {}, '', '   ']) {
+      const { products, calls } = marketplace();
+      const res = response();
+      await products.createProduct({ user: { id: 2, tipo: 'vendedor' }, body: { ...validProduct, [field]: value } }, res);
+      assert.equal(res.statusCode, 400, field);
+      assert.equal(calls.length, 0);
+    }
+  }
+});
+
+test('publicação rejeita preço inválido e imagem não textual', async () => {
+  for (const body of [...invalidNumbers.map((preco) => ({ ...validProduct, preco })), { ...validProduct, imagem: {} }]) {
+    const { products, calls } = marketplace();
+    const res = response();
+    await products.createProduct({ user: { id: 2, tipo: 'vendedor' }, body }, res);
+    assert.equal(res.statusCode, 400);
+    assert.equal(calls.length, 0);
+  }
+});
+
+test('identificadores inválidos são rejeitados em todos os endpoints com ID de produto/encomenda', async () => {
+  for (const id of invalidIds) {
+    for (const endpoint of ['getProductById', 'updateProduct', 'deleteProduct', 'adminDeleteProduct', 'createOrder', 'updateOrderStatus']) {
+      const { products, orders, admin, calls } = marketplace();
+      const res = response();
+      const req = { params: { id }, user: { id: 2, tipo: 'admin' }, body: { productId: id, quantidade: 1, status: 'aceite' } };
+      const handler = endpoint === 'adminDeleteProduct' ? admin.deleteProduct : products[endpoint] || orders[endpoint];
+      await handler(req, res);
+      assert.equal(res.statusCode, 400, `${endpoint}: ${String(id)}`);
+      assert.equal(calls.length, 0);
+    }
+  }
+});
+
+test('encomendas rejeitam quantidades inválidas antes de consultar o produto', async () => {
+  for (const quantidade of invalidNumbers) {
+    const { orders, calls } = marketplace();
+    const res = response();
+    await orders.createOrder({ user: { id: 3, tipo: 'comprador' }, body: { productId: 10, quantidade } }, res);
+    assert.equal(res.statusCode, 400, String(quantidade));
+    assert.equal(calls.length, 0);
+  }
+});
+
+test('comprador, vendedor e admin compram frações de produtos alheios sem reservar stock', async () => {
+  for (const tipo of ['comprador', 'vendedor', 'admin']) {
+    for (const quantidade of [0.5, '0.50']) {
+      const { orders, calls, product } = marketplace({ quantidade: 'quantidade textual sem stock estruturado' });
+      const res = response();
+      await orders.createOrder({ user: { id: 3, tipo }, body: {
+        productId: '10', quantidade, buyerId: 99, sellerId: 99, preco: 0.01, total: 0.01, status: 'entregue'
+      } }, res);
+      assert.equal(res.statusCode, 201);
+      assert.deepEqual(calls.map((call) => call.name), ['product.findUnique', 'order.create']);
+      assert.deepEqual({ ...calls[0].where }, { id: 10 });
+      assert.deepEqual({ ...calls[1].data }, { productId: 10, buyerId: 3, sellerId: 2, quantidade: '0.5', total: 12.5 });
+      assert.equal(res.body.order.status, 'pendente');
+      assert.equal(product.quantidade, 'quantidade textual sem stock estruturado');
+    }
+  }
+});
+
+test('ninguém pode encomendar o próprio produto, incluindo admin', async () => {
+  for (const tipo of ['comprador', 'vendedor', 'admin']) {
+    const { orders, calls } = marketplace();
+    const res = response();
+    await orders.createOrder({ user: { id: 2, tipo }, body: { productId: 10, quantidade: 1 } }, res);
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(calls.map((call) => call.name), ['product.findUnique']);
+  }
+});
+
+test('preço guardado inválido e total com overflow/underflow são rejeitados', async () => {
+  const cases = [0, -1, NaN, Infinity, null, '25'].map((preco) => ({ preco, quantidade: 1 }));
+  cases.push({ preco: Number.MAX_VALUE, quantidade: 2 }, { preco: Number.MIN_VALUE, quantidade: 0.5 });
+  for (const { preco, quantidade } of cases) {
+    const { orders, calls } = marketplace({ preco });
+    const res = response();
+    await orders.createOrder({ user: { id: 3 }, body: { productId: 10, quantidade } }, res);
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(calls.map((call) => call.name), ['product.findUnique']);
+  }
+});
+
+test('apenas vendedor da encomenda/admin alteram os quatro estados legítimos', async () => {
+  for (const user of [{ id: 2, tipo: 'vendedor' }, { id: 99, tipo: 'admin' }]) {
+    for (const status of ['pendente', 'aceite', 'rejeitado', 'entregue']) {
+      const { orders, calls } = marketplace();
+      const res = response();
+      await orders.updateOrderStatus({ params: { id: '20' }, user, body: { status, total: 0, buyerId: 99 } }, res);
+      assert.equal(res.statusCode, 200);
+      assert.deepEqual({ ...calls[1].data }, { status });
+      assert.deepEqual({ ...calls[1].where }, { id: 20 });
+    }
+  }
+  for (const user of [{ id: 3, tipo: 'comprador' }, { id: 4, tipo: 'vendedor' }]) {
+    const { orders, calls } = marketplace();
+    const res = response();
+    await orders.updateOrderStatus({ params: { id: 20 }, user, body: { status: 'aceite' } }, res);
+    assert.equal(res.statusCode, 403);
+    assert.deepEqual(calls.map((call) => call.name), ['order.findUnique']);
+  }
+});
+
+test('estados desconhecidos e tipos inválidos são rejeitados sem alteração', async () => {
+  for (const status of [undefined, null, '', 'cancelado', 'ACEITE', true, 1, [], {}, { set: 'aceite' }]) {
+    const { orders, calls } = marketplace();
+    const res = response();
+    await orders.updateOrderStatus({ params: { id: 20 }, user: { id: 2 }, body: { status } }, res);
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(calls.map((call) => call.name), ['order.findUnique']);
+  }
+});
+
+test('publicação e encomendas rejeitam corpo inválido', async () => {
+  for (const body of [undefined, null, true, 'texto', 1, []]) {
+    for (const name of ['createProduct', 'createOrder', 'updateOrderStatus']) {
+      const { products, orders, calls } = marketplace();
+      const res = response();
+      await (products[name] || orders[name])({ params: { id: 20 }, user: { id: 2, tipo: 'vendedor' }, body }, res);
+      assert.equal(res.statusCode, 400);
+      assert.equal(calls.some((call) => call.name.endsWith('.create') || call.name.endsWith('.update')), false);
+    }
+  }
+});
+
+test('consultas continuam filtradas pelo comprador/vendedor autenticado', async () => {
+  for (const [name, field] of [['getMyOrders', 'buyerId'], ['getReceivedOrders', 'sellerId']]) {
+    const { orders, calls } = marketplace();
+    const res = response();
+    await orders[name]({ user: { id: 3 }, query: { buyerId: 99, sellerId: 99 } }, res);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual({ ...calls[0].where }, { [field]: 3 });
   }
 });

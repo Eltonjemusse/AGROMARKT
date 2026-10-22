@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma');
+const { positiveId } = require('../utils/validation');
 
 const getUsers = async (req, res) => {
   try {
@@ -88,7 +89,8 @@ const getProducts = async (req, res) => {
 
 const deleteProduct = async (req, res) => {
   try {
-    const productId = Number(req.params.id);
+    const productId = positiveId(req.params.id);
+    if (!Number.isFinite(productId)) return res.status(400).json({ message: 'Identificador de produto inválido' });
 
     await prisma.order.deleteMany({
       where: {

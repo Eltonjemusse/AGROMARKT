@@ -1,14 +1,34 @@
 const prisma = require('../config/prisma');
+const { isObjectBody, positiveNumber, positiveId } = require('../utils/validation');
 
 const createProduct = async (req, res) => {
   try {
+    if (!['vendedor', 'admin'].includes(req.user?.tipo)) {
+      return res.status(403).json({ message: 'Apenas vendedores e administradores podem publicar produtos' });
+    }
+
+    if (!isObjectBody(req.body)) {
+      return res.status(400).json({ message: 'Dados de produto inválidos' });
+    }
+
     const { nome, descricao, preco, quantidade, categoria, imagem, localizacao } = req.body;
+    if ([nome, descricao, quantidade, categoria, localizacao].some((value) => typeof value !== 'string' || !value.trim())) {
+      return res.status(400).json({ message: 'Os campos obrigatórios do produto devem ser texto não vazio' });
+    }
+
+    const price = positiveNumber(preco);
+    if (!Number.isFinite(price)) {
+      return res.status(400).json({ message: 'O preço deve ser um número finito e positivo' });
+    }
+    if (imagem !== undefined && imagem !== null && typeof imagem !== 'string') {
+      return res.status(400).json({ message: 'A imagem deve ser um URL em texto' });
+    }
 
     const product = await prisma.product.create({
       data: {
         nome,
         descricao,
-        preco: Number(preco),
+        preco: price,
         quantidade,
         categoria,
         imagem,
@@ -37,8 +57,10 @@ const getProducts = async (req, res) => {
 };
 
 const getProductById = async (req, res) => {
+  const id = positiveId(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ message: 'Identificador de produto inválido' });
   const product = await prisma.product.findUnique({
-    where: { id: Number(req.params.id) },
+    where: { id },
     include: {
       user: {
         select: { id: true, nome: true, telefone: true, email: true }
@@ -55,8 +77,10 @@ const getProductById = async (req, res) => {
 
 const updateProduct = async (req, res) => {
   try {
+    const id = positiveId(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ message: 'Identificador de produto inválido' });
     const product = await prisma.product.findUnique({
-      where: { id: Number(req.params.id) }
+      where: { id }
     });
 
     if (!product) {
@@ -94,7 +118,7 @@ const updateProduct = async (req, res) => {
     }
 
     const updatedProduct = await prisma.product.update({
-      where: { id: Number(req.params.id) },
+      where: { id },
       data
     });
 
@@ -106,8 +130,10 @@ const updateProduct = async (req, res) => {
 
 const deleteProduct = async (req, res) => {
   try {
+    const id = positiveId(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ message: 'Identificador de produto inválido' });
     const product = await prisma.product.findUnique({
-      where: { id: Number(req.params.id) }
+      where: { id }
     });
 
     if (!product) {
@@ -119,7 +145,7 @@ const deleteProduct = async (req, res) => {
     }
 
     await prisma.product.delete({
-      where: { id: Number(req.params.id) }
+      where: { id }
     });
 
     res.json({ message: 'Produto apagado com sucesso' });
