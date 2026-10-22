@@ -4,6 +4,10 @@ const jwt = require('jsonwebtoken');
 
 const register = async (req, res) => {
   try {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ message: 'Dados de registo inválidos' });
+    }
+
     const {
       nome,
       email,
@@ -12,10 +16,16 @@ const register = async (req, res) => {
       tipo
     } = req.body;
 
-    if (!nome || !email || !senha) {
+    if ([nome, email, senha].some((value) => typeof value !== 'string' || !value.trim())) {
       return res.status(400).json({
-        message: 'Nome, email e senha são obrigatórios'
+        message: 'Nome, email e senha são obrigatórios e devem ser texto'
       });
+    }
+
+    const publicAccountType = tipo === undefined ? 'comprador' : tipo;
+
+    if (!['comprador', 'vendedor'].includes(publicAccountType)) {
+      return res.status(400).json({ message: 'Tipo de conta inválido' });
     }
 
     const userExists = await prisma.user.findUnique({
@@ -36,7 +46,7 @@ const register = async (req, res) => {
         email,
         senha: hashedPassword,
         telefone: telefone || '',
-        tipo: tipo || 'comprador'
+        tipo: publicAccountType
       }
     });
 
