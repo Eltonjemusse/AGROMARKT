@@ -105,11 +105,16 @@ Plataforma para aproximar agricultores/vendedores e compradores de produtos agr�
 - Migração aditiva `20261022170000_order_stock_acceptance`: marcador nullable sem default/backfill, CHECK e índices. Aplicada só em `127.0.0.1:55432/agromarkt_test` por `node scripts/deployLocalTestMigrations.js`, com variáveis específicas e confirmação no processo: 3 migrações concluídas, segundo deploy sem mudanças, contagens preservadas e diff Prisma exit 0. Cliente gerado com `npm.cmd run generate:isolated`; sem .env.
 - Verificação: 64 testes backend, 18 HTTP/PostgreSQL e 21 frontend aprovados, sem ignorados; build e diff --check aprovados. Integração cobre oito confirmações simultâneas, concorrência entre encomendas e aceitar/rejeitar, insuficiência, rollback real após falha injetada, frações, edição concorrente/desatualizada e finais/legado. Limpeza apenas dos dados sintéticos confirmada. Não foi repetido o ensaio de base vazia; produção intacta.
 
+## Versão funcional — histórico
+
+- Stock/estados guardados em `78c865a`. Remoções administrativas deixam de apagar encomendas: contas/produtos referenciados devolvem 409 e motivo de preservação; a interface desativa a ação e explica. Conta sem histórico remove só produtos não referenciados e conta, numa transação. As FKs RESTRICT já existentes protegem a corrida após a verificação; sem migração adicional ou arquivo genérico.
+- 64 testes backend, 20 HTTP/PostgreSQL e 22 frontend aprovados, incluindo encomenda inserida durante remoção de conta: FK impede remoção e transação preserva conta/produto/encomenda. Dados antigos e snapshots mantidos, limpeza sintética confirmada; lint dos ficheiros alterados aprovado. O efeito assíncrono de Admin foi corrigido; resta o erro antigo em Produtos.
+
 ## Pendências e produção
 
 - Implementar conversão de comprador para vendedor.
 - Validar o novo percurso no navegador em computador/telemóvel; revisão visual geral e acessibilidade nas fases 4A/4B. Unidade estruturada e adaptação funcional das quantidades estão implementadas localmente na 2A.4.
-- Proteger histórico nas remoções (bloco seguinte); transições e stock da versão atual já implementados/testados. Cancelamento após aceitação continua fora desta versão.
-- Resolver os 2 erros preexistentes de lint que restam no frontend (Admin.jsx e Produtos.jsx). Nenhum erro novo de lint na 2A.4.
+- Cancelamento após aceitação continua fora desta versão; finais não reabrem. Stock/estados e bloqueio de remoções com histórico já implementados/testados.
+- Resolver o erro antigo de lint que resta em Produtos.jsx, no bloco de interface essencial.
 - **A produção ainda não recebeu estas correções.**
 - Antes da publicação, verificar a legitimidade das contas administrativas existentes e avaliar os tokens já emitidos. Essa verificação continua pendente: não consultar nem alterar dados de produção nesta etapa.

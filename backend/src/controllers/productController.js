@@ -2,6 +2,7 @@ const prisma = require('../config/prisma');
 const { isObjectBody, positiveNumber, positiveId } = require('../utils/validation');
 const { prepareStructuredProduct, serializeProduct, isStructuredProduct } = require('../utils/structuredCommerce');
 const { validateQuantity } = require('../utils/commercialDecimals');
+const { removeProduct } = require('../utils/historyProtection');
 
 const createProduct = async (req, res) => {
   try {
@@ -174,18 +175,18 @@ const deleteProduct = async (req, res) => {
       return res.status(403).json({ message: 'Sem permissão' });
     }
 
-    await prisma.product.delete({
-      where: { id }
-    });
+    await removeProduct(prisma, id, req.user);
 
     res.json({ message: 'Produto apagado com sucesso' });
   } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     res.status(500).json({ message: 'Erro ao apagar produto' });
   }
 };
 const getMyProducts = async (req, res) => {
   try {
     const products = await prisma.product.findMany({
+      include: { _count: { select: { orders: true } } },
       where: {
         userId: req.user.id
       },

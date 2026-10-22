@@ -23,6 +23,7 @@ test('vistas comerciais respeitam permissões, unidades e dados históricos', as
     const NovoProduto = await load('pages/NovoProduto');
     const OrderCommercial = await load('components/OrderCommercial');
     const OrderActions = await load('components/OrderActions');
+    const DeleteAction = await load('components/DeleteAction');
     const ProductCommercial = await load('components/ProductCommercial');
     const ProductFields = await load('components/ProductFields');
     const { productFormValues } = await import('../src/utils/commercial.js');
@@ -102,6 +103,14 @@ test('vistas comerciais respeitam permissões, unidades e dados históricos', as
         assert.match(closed, /Encomenda encerrada/);
         assert.doesNotMatch(closed, /<button/);
       }
+    });
+
+    await t.test('remoção incompatível com histórico fica desativada com explicação visível', () => {
+      const reason = 'Remoção bloqueada: preservar encomendas associadas.';
+      const blocked = render(DeleteAction, { reason, onDelete: () => {} });
+      assert.match(blocked, /disabled=""/);
+      assert.match(blocked, /<p[^>]*>Remoção bloqueada: preservar encomendas associadas\./);
+      assert.doesNotMatch(render(DeleteAction, { onDelete: () => {} }), /disabled/);
     });
   } finally {
     await vite.close();

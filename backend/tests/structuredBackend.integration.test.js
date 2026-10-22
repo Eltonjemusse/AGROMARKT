@@ -403,6 +403,68 @@ test('HTTP e persistência dos dados estruturados na base local autorizada', asy
       assert.equal(Boolean(saved.stockDescontadoEm), saved.status === 'aceite');
     });
 
+    await t.test('remoções do vendedor/admin preservam compras, vendas e encomendas antigas', async () => {
+      const p = await product({ quantidadeDisponivel: '3' });
+      const o = (await http('POST', '/orders', 'buyer', { productId: p.id, quantidadeNumerica: '1' })).data.order;
+      const original = await prisma.order.findUnique({ where: { id: o.id } });
+      for (const [route, role] of [[`/admin/products/${p.id}`, 'admin'], [`/products/${p.id}`, 'seller'],
+        [`/admin/users/${accounts.buyer.id}`, 'admin'], [`/admin/users/${accounts.seller.id}`, 'admin']]) {
+        const result = await http('DELETE', route, role);
+        assert.equal(result.status, 409, result.data.message);
+        assert.match(result.data.message, /histórico/);
+      }
+      assert.equal((await http('DELETE', `/products/${p.id}`, 'other')).status, 403);
+      assert.equal((await http('DELETE', `/admin/products/${p.id}`, 'buyer')).status, 403);
+      assert.deepEqual(await prisma.order.findUnique({ where: { id: o.id } }), original);
+      const saved = await prisma.order.findUnique({ where: { id: o.id } });
+      assert.equal(saved.nomeProdutoSnapshot, o.nomeProdutoSnapshot);
+      assert.equal(saved.totalDecimal.toFixed(2), o.totalDecimal);
+      assert.equal(saved.status, 'pendente');
+      const products = await http('GET', '/admin/products', 'admin');
+      assert.equal(products.data.find((row) => row.id === p.id)._count.orders, 1);
+      const users = await http('GET', '/admin/users', 'admin');
+      assert.ok(users.data.find((row) => row.id === accounts.buyer.id)._count.pedidosFeitos > 0);
+      const historicInput = input({ quantidade: 'texto histórico', preco: 2 });
+      for (const key of ['quantidadeDisponivel', 'unidade', 'precoUnitario', 'moeda']) delete historicInput[key];
+      const legacy = (await http('POST', '/products', 'seller', historicInput)).data.product;
+      const legacyOrder = (await http('POST', '/orders', 'buyer', { productId: legacy.id, quantidade: '1' })).data.order;
+      assert.equal((await http('DELETE', `/admin/products/${legacy.id}`, 'admin')).status, 409);
+      assert.ok(await prisma.order.findUnique({ where: { id: legacyOrder.id } }));
+      const unused = await product();
+      assert.equal((await http('DELETE', `/admin/products/${unused.id}`, 'admin')).status, 200);
+      assert.equal(await prisma.product.findUnique({ where: { id: unused.id } }), null);
+    });
+
+    await t.test('remoção de conta sem histórico é atómica; uma encomenda concorrente impede qualquer remoção', async () => {
+      for (const withRace of [false, true]) {
+        const user = await prisma.user.create({ data: { nome: `${prefix}_history_${withRace}`, email: `${prefix}.history${withRace}@example.test`, senha: 'synthetic', tipo: 'vendedor' } });
+        userIds.push(user.id);
+        accounts.historySeller = { ...user, token: require('jsonwebtoken').sign({ id: user.id, tipo: 'vendedor' }, process.env.JWT_SECRET) };
+        const p = await product({}, 'historySeller');
+        if (!withRace) {
+          assert.equal((await http('DELETE', `/admin/users/${user.id}`, 'admin')).status, 200);
+          assert.equal(await prisma.user.findUnique({ where: { id: user.id } }), null);
+          assert.equal(await prisma.product.findUnique({ where: { id: p.id } }), null);
+        } else {
+          let created;
+          const { removeUser } = require('../src/utils/historyProtection');
+          const race = { $transaction: (operation) => prisma.$transaction((tx) => operation({
+            user: tx.user, product: tx.product, order: { count: async (args) => {
+              const before = await tx.order.count(args);
+              assert.equal(before, 0);
+              created = await http('POST', '/orders', 'buyer', { productId: p.id, quantidadeNumerica: '1' });
+              assert.equal(created.status, 201);
+              return before;
+            } }
+          })) };
+          await assert.rejects(removeUser(race, user.id), (error) => error.statusCode === 409 && /histórico/.test(error.message));
+          assert.ok(await prisma.user.findUnique({ where: { id: user.id } }));
+          assert.ok(await prisma.product.findUnique({ where: { id: p.id } }));
+          assert.ok(await prisma.order.findUnique({ where: { id: created.data.order.id } }));
+        }
+      }
+    });
+
     await t.test('pendentes não reservam/comparam/descontam disponibilidade', async () => {
       const p = await product({ quantidadeDisponivel: '0' });
       for (let index = 0; index < 2; index++) {

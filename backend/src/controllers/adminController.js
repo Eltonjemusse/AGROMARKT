@@ -1,6 +1,7 @@
 const prisma = require('../config/prisma');
 const { positiveId } = require('../utils/validation');
 const { serializeProduct } = require('../utils/structuredCommerce');
+const { removeProduct, removeUser } = require('../utils/historyProtection');
 
 const getUsers = async (req, res) => {
   try {
@@ -11,7 +12,8 @@ const getUsers = async (req, res) => {
         email: true,
         telefone: true,
         tipo: true,
-        createdAt: true
+        createdAt: true,
+        _count: { select: { pedidosFeitos: true, pedidosRecebidos: true } }
       },
       orderBy: {
         createdAt: 'desc'
@@ -27,7 +29,8 @@ const getUsers = async (req, res) => {
 
 const deleteUser = async (req, res) => {
   try {
-    const userId = Number(req.params.id);
+    const userId = positiveId(req.params.id);
+    if (!Number.isFinite(userId)) return res.status(400).json({ message: 'Identificador de utilizador inválido' });
 
     if (userId === req.user.id) {
       return res.status(400).json({
@@ -35,29 +38,11 @@ const deleteUser = async (req, res) => {
       });
     }
 
-    await prisma.order.deleteMany({
-      where: {
-        OR: [
-          { buyerId: userId },
-          { sellerId: userId }
-        ]
-      }
-    });
-
-    await prisma.product.deleteMany({
-      where: {
-        userId
-      }
-    });
-
-    await prisma.user.delete({
-      where: {
-        id: userId
-      }
-    });
+    await removeUser(prisma, userId);
 
     res.json({ message: 'Utilizador apagado com sucesso' });
   } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     console.log(error);
     res.status(500).json({ message: 'Erro ao apagar utilizador' });
   }
@@ -67,6 +52,7 @@ const getProducts = async (req, res) => {
   try {
     const products = await prisma.product.findMany({
       include: {
+        _count: { select: { orders: true } },
         user: {
           select: {
             id: true,
@@ -93,20 +79,11 @@ const deleteProduct = async (req, res) => {
     const productId = positiveId(req.params.id);
     if (!Number.isFinite(productId)) return res.status(400).json({ message: 'Identificador de produto inválido' });
 
-    await prisma.order.deleteMany({
-      where: {
-        productId
-      }
-    });
-
-    await prisma.product.delete({
-      where: {
-        id: productId
-      }
-    });
+    await removeProduct(prisma, productId, req.user);
 
     res.json({ message: 'Produto apagado com sucesso' });
   } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ message: error.message });
     console.log(error);
     res.status(500).json({ message: 'Erro ao apagar produto' });
   }

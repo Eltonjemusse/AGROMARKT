@@ -16,6 +16,7 @@ function loadController(filename, dependencies) {
       if (name === '../utils/structuredCommerce') return require('../src/utils/structuredCommerce');
       if (name === '../utils/commercialDecimals') return require('../src/utils/commercialDecimals');
       if (name === '../utils/orderWorkflow') return require('../src/utils/orderWorkflow');
+      if (name === '../utils/historyProtection') return require('../src/utils/historyProtection');
       if (!Object.prototype.hasOwnProperty.call(dependencies, name)) {
         throw new Error(`Unexpected dependency: ${name}`);
       }
@@ -336,11 +337,11 @@ test('publicação rejeita preço inválido e imagem não textual', async () => 
 
 test('identificadores inválidos são rejeitados em todos os endpoints com ID de produto/encomenda', async () => {
   for (const id of invalidIds) {
-    for (const endpoint of ['getProductById', 'updateProduct', 'deleteProduct', 'adminDeleteProduct', 'createOrder', 'updateOrderStatus']) {
+    for (const endpoint of ['getProductById', 'updateProduct', 'deleteProduct', 'adminDeleteProduct', 'adminDeleteUser', 'createOrder', 'updateOrderStatus']) {
       const { products, orders, admin, calls } = marketplace();
       const res = response();
       const req = { params: { id }, user: { id: 2, tipo: 'admin' }, body: { productId: id, quantidade: 1, status: 'aceite' } };
-      const handler = endpoint === 'adminDeleteProduct' ? admin.deleteProduct : products[endpoint] || orders[endpoint];
+      const handler = endpoint === 'adminDeleteProduct' ? admin.deleteProduct : endpoint === 'adminDeleteUser' ? admin.deleteUser : products[endpoint] || orders[endpoint];
       await handler(req, res);
       assert.equal(res.statusCode, 400, `${endpoint}: ${String(id)}`);
       assert.equal(calls.length, 0);

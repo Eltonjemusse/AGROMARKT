@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import api from '../services/api';
+import DeleteAction from '../components/DeleteAction';
+import { formatDecimal, isStructuredProduct } from '../utils/commercial';
 
 function Admin() {
   const user = JSON.parse(localStorage.getItem('user'));
@@ -15,24 +17,10 @@ function Admin() {
   const [products, setProducts] = useState([]);
   const [tab, setTab] = useState('users');
   const [loading, setLoading] = useState(true);
-
-  const carregarDados = async () => {
-    try {
-      const statsResponse = await api.get('/admin/stats');
-      setStats(statsResponse.data);
-
-      const usersResponse = await api.get('/admin/users');
-      setUsers(usersResponse.data);
-
-      const productsResponse = await api.get('/admin/products');
-      setProducts(productsResponse.data);
-    } catch (error) {
-      console.log(error);
-      alert(error.response?.data?.message || 'Erro ao carregar área admin');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [error, setError] = useState('');
+  const [revision, setRevision] = useState(0);
+  const allowed = user?.tipo === 'admin';
+  const carregarDados = () => { setLoading(true); setError(''); setRevision((value) => value + 1); };
 
   const apagarUtilizador = async (id) => {
     const confirmar = confirm('Tens certeza que queres apagar este utilizador?');
@@ -65,8 +53,16 @@ function Admin() {
   };
 
   useEffect(() => {
-    carregarDados();
-  }, []);
+    if (!allowed) return;
+    let active = true;
+    Promise.all([api.get('/admin/stats'), api.get('/admin/users'), api.get('/admin/products')])
+      .then(([statsResponse, usersResponse, productsResponse]) => {
+        if (active) { setStats(statsResponse.data); setUsers(usersResponse.data); setProducts(productsResponse.data); }
+      })
+      .catch((failure) => { if (active) setError(failure.response?.data?.message || 'Erro ao carregar área admin'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [allowed, revision]);
 
   if (!user || user.tipo !== 'admin') {
     return (
@@ -88,6 +84,7 @@ function Admin() {
 
       <div className="container">
         <h2>Painel Administrativo</h2>
+        {error && <p role="alert" className="form-error">{error}</p>}
 
         <div className="dashboard-grid">
           <div className="card">
@@ -153,13 +150,8 @@ function Admin() {
                             <td>{item.telefone}</td>
                             <td>{item.tipo}</td>
                             <td>
-                              <button
-                                className="danger-btn"
-                                onClick={() => apagarUtilizador(item.id)}
-                                disabled={item.id === user.id}
-                              >
-                                Apagar
-                              </button>
+                              <DeleteAction onDelete={() => apagarUtilizador(item.id)} reason={item.id === user.id ? 'Não podes apagar a tua conta admin.' :
+                                (item._count?.pedidosFeitos > 0 || item._count?.pedidosRecebidos > 0) ? 'Remoção bloqueada: preservar compras e vendas existentes.' : ''} />
                             </td>
                           </tr>
                         ))}
@@ -194,17 +186,12 @@ function Admin() {
                         {products.map((product) => (
                           <tr key={product.id}>
                             <td>{product.nome}</td>
-                            <td>{product.preco} MT</td>
+                            <td>{isStructuredProduct(product) ? `${formatDecimal(product.precoUnitario, 2)} MT / ${product.unidade}` : 'Preço/unidade por rever'}</td>
                             <td>{product.categoria}</td>
                             <td>{product.localizacao}</td>
                             <td>{product.user?.nome}</td>
                             <td>
-                              <button
-                                className="danger-btn"
-                                onClick={() => apagarProduto(product.id)}
-                              >
-                                Apagar
-                              </button>
+                              <DeleteAction onDelete={() => apagarProduto(product.id)} reason={product._count?.orders > 0 ? 'Remoção bloqueada: preservar encomendas associadas.' : ''} />
                             </td>
                           </tr>
                         ))}

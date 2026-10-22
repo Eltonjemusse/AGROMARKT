@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import ProductFields from '../components/ProductFields';
 import ProductCommercial from '../components/ProductCommercial';
+import DeleteAction from '../components/DeleteAction';
 import { buildProductPayload, canPublish, isStructuredProduct, productFormValues } from '../utils/commercial';
 import api from '../services/api';
 
@@ -76,7 +77,7 @@ function MeusProdutos() {
                     <p><strong>Categoria:</strong> {product.categoria}</p>
                     <p><strong>Localização:</strong> {product.localizacao}</p>
                     <button onClick={() => iniciarEdicao(product)}>Editar</button>
-                    <button onClick={() => apagarProduto(product.id)} className="danger-btn">Apagar</button>
+                    <DeleteAction onDelete={() => apagarProduto(product.id)} reason={product._count?.orders > 0 ? 'Remoção bloqueada para preservar as encomendas associadas.' : ''} />
                   </div>
                 ))}
               </div>
