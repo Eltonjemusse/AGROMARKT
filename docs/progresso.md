@@ -73,7 +73,7 @@ Plataforma para aproximar agricultores/vendedores e compradores de produtos agr�
 
 ## Fase 2A.3 — integração do backend
 
-- Fase 2A.2 guardada em commit local `923acc6` (`test: validar migracao comercial em PostgreSQL`), apenas com os nove ficheiros correspondentes. Implementação 2A.3 deixada sem commit para revisão.
+- Fase 2A.2 guardada em commit local `923acc6` (`test: validar migracao comercial em PostgreSQL`), apenas com os nove ficheiros correspondentes. Após revisão sem defeitos concretos de autorização/precisão/compatibilidade/snapshots, a 2A.3 foi guardada em `4c6a0b36c9da8a7d7d3e0a25125a3234a0ced07c` (`feat: integrar dados comerciais estruturados no backend`), só com os 13 ficheiros da fase, incluindo o relatório sem credenciais.
 - Cliente Prisma 5.22.0 atualizado por geração isolada, sem carregar .env ou ligação real. Script repetível `npm.cmd run generate:isolated`; artefactos em node_modules, não versionados.
 - Controladores usam validações/cálculos decimais no fluxo estruturado e devolvem novas quantidades/preços/totais como strings fixas. Quatro campos comerciais coerentes exigidos; projeções legadas sincronizadas; contradições e mudanças comerciais apenas pelo legado são rejeitadas. Contrato antigo mantém-se temporariamente.
 - Encomendas estruturadas obtêm participantes/dados comerciais no servidor, guardam snapshots e não permitem a sua alteração. Produto antigo incompleto continua consultável, mas pedido estruturado devolve HTTP 409; não há conversão nem histórico inventado. Produtos em revisão não geram novas encomendas.
@@ -82,11 +82,27 @@ Plataforma para aproximar agricultores/vendedores e compradores de produtos agr�
 - Contratos, compatibilidade temporária, tipos, snapshots, limites e ordem de ativação em [fase-2a3-backend.md](fase-2a3-backend.md). O legado continua Float sem snapshots, enquanto o fluxo estruturado usa Decimal exato; campos antigos são apenas projeções neste último.
 - Pendentes frontend/ativação coordenada, fim do contrato legado, limites comerciais, stock/concorrência/idempotência (2B), transições/preservação nas remoções (2C). Sem produção, alteração de .env, push ou deploy.
 
+## Fase 2A.4 — integração funcional do frontend
+
+- Implementação local sem commit para revisão, no ramo `melhorias-agromarkt`. Publicação/edição enviam quantidade disponível, unidade e preço unitário como strings, com moeda MZN apresentada como MT. Apenas vendedor/admin têm ações de publicação; acesso direto de comprador não mostra formulário.
+- Unidades explícitas kg/litro/unidade/saco; frações só em kg/litro. Interface aceita vírgula/ponto decimal simples sem Number/parseFloat/cálculos monetários. Rejeita milhares, formatos mistos e entradas ambíguas como `1,234`/`1.234`; para a fração usar `1,234000`. Quantidade/preço até 12 dígitos inteiros e 6 casas significativas, sem arredondamento local.
+- Catálogo/detalhe/meus produtos mostram quantidade/unidade e preço por unidade. Produtos antigos ou incompletos continuam visíveis com aviso de revisão; novos pedidos usam exclusivamente o contrato estruturado. A edição antiga não deduz campos novos: permite só metadados quando os três campos comerciais ficam vazios, ou preenchimento manual completo e explícito.
+- Compras/vendas mostram nome, unidade, preço e total guardados na encomenda. Histórico incompleto é identificado; não se deduz moeda, preço ou nome histórico a partir do produto atual. Não há pré-visualização monetária nem pedidos criados para a calcular; o total apresentado é o devolvido pelo servidor na encomenda.
+- Verificações reais: backend `npm.cmd test` — **62 aprovados**; frontend `npm.cmd test` — **19 aprovados** (13 de normalização/contratos e 6 de renderização, contando o exterior); integração `node --test tests/structuredBackend.integration.test.js` — **12 aprovados, zero falhas/ignorados** (11 subtestes e exterior). Base confirmada pelo helper como `127.0.0.1:55432/agromarkt_test`, com duas migrações concluídas; sem reset ou ensaio de base vazia.
+- Percurso com funções reais de payload do frontend e HTTP/Prisma reais: publicar → catálogo/detalhe → encomendar `0,125 kg` a `0,20 MT/kg` → consultar compra/venda → editar nome, preço e unidade do produto → confirmar snapshots originais e total `0,03 MT` nas duas listagens e na persistência. Dados sintéticos com prefixo aleatório do ensaio; limpeza restrita aos seus IDs/proprietários/prefixo confirmada.
+- `npm.cmd run build` aprovado. Lint inicial: 5 erros/1 aviso de hooks; final: **2 erros preexistentes** em Admin.jsx:68 e Produtos.jsx:25, sem erros introduzidos. Os componentes reescritos passaram a carregar dados em callbacks assíncronos de efeitos, resolvendo os outros três erros e o aviso. `git diff --check` aprovado.
+- Sem navegador/aplicações disponíveis na ferramenta de computador; tentativa de abrir o navegador interno devolveu `Browser is not available: iab`. Não foi possível verificar visualmente computador/telemóvel ou executar o percurso clicando na interface. Renderização estática dos componentes foi testada, mas **não há aprovação visual ou de navegação real**. Rever tamanhos, teclado/foco e percurso em navegador antes de ativar; revisão visual geral mantém-se na fase 4.
+- Contratos, compatibilidade, comandos e ordem de ativação em [fase-2a4-frontend.md](fase-2a4-frontend.md). Sem produção/.env, novas migrações, stock, transições, passagem para vendedor, conversão automática, push ou deploy.
+
+## Fecho local da 2A.4 — versão funcional
+
+- Repetidos 19 testes frontend e 12 HTTP/PostgreSQL: aprovados, sem ignorados; build aprovado. O percurso agora inclui registo público e login reais de vendedor/comprador, publicação bloqueada ao comprador, publicação/consulta/compra fracionada e snapshots preservados após edição. Limpeza sintética confirmada. Bloco pronto para commit local; verificação visual/browser continua bloqueada pela ferramenta indisponível.
+
 ## Pendências e produção
 
 - Implementar conversão de comprador para vendedor.
-- Implementar unidade estruturada e adaptar a interface para quantidades fracionadas com unidade explícita.
+- Validar o novo percurso no navegador em computador/telemóvel; revisão visual geral e acessibilidade nas fases 4A/4B. Unidade estruturada e adaptação funcional das quantidades estão implementadas localmente na 2A.4.
 - Definir e implementar transições de estado, controlo de stock na confirmação e preservação do histórico nas remoções.
-- Resolver os erros de lint existentes no frontend: a execução anterior de `npm.cmd run lint` registou 5 erros e 1 aviso relacionados com hooks; não foram corrigidos nesta fase.
+- Resolver os 2 erros preexistentes de lint que restam no frontend (Admin.jsx e Produtos.jsx). Nenhum erro novo de lint na 2A.4.
 - **A produção ainda não recebeu estas correções.**
 - Antes da publicação, verificar a legitimidade das contas administrativas existentes e avaliar os tokens já emitidos. Essa verificação continua pendente: não consultar nem alterar dados de produção nesta etapa.

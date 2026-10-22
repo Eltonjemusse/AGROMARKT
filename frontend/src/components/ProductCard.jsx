@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import ProductCommercial from './ProductCommercial';
 
 function ProductCard({ product }) {
   return (
@@ -23,13 +24,7 @@ function ProductCard({ product }) {
         {product.descricao}
       </p>
 
-      <p>
-        <strong>Preço:</strong> {product.preco} MT
-      </p>
-
-      <p>
-        <strong>Quantidade:</strong> {product.quantidade}
-      </p>
+      <ProductCommercial product={product} />
 
       <p>
         <strong>Localização:</strong> {product.localizacao}

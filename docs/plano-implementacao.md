@@ -1,6 +1,6 @@
 # Plano de implementação do AgroMarket
 
-Documento para revisão. As fases 1A/1B, 2A.1 e a validação local da migração 2A.2 estão concluídas. A integração do backend 2A.3 está implementada sem commit para revisão. As restantes etapas são propostas, sem autorização implícita para produção ou publicação.
+Documento para revisão. As fases 1A/1B, 2A.1 e a validação local da migração 2A.2 estão concluídas. O backend 2A.3 foi revisto e guardado em commit local. A integração funcional do frontend 2A.4 está implementada sem commit para revisão, com verificação visual pendente por indisponibilidade de navegador. As restantes etapas são propostas, sem autorização implícita para produção ou publicação.
 
 ## Etapas e critérios de conclusão
 
@@ -11,7 +11,8 @@ Documento para revisão. As fases 1A/1B, 2A.1 e a validação local da migraçã
 | 2A | Quantidade numérica, unidade explícita, dinheiro decimal e cópias históricas na encomenda. Ver [fase-2a-dados.md](fase-2a-dados.md). | Contratos e precisão definidos; testes de cálculos e migração isolada aprovados; legado ambíguo preservado e identificado. |
 | 2A.1 — concluída localmente | Funções puras com Decimal do Prisma instalado; campos opcionais e enums no esquema, sem aplicação. | 57 testes aprovados, incluindo precisão/escala/unidades e validação estática isolada; controladores/frontend intactos. |
 | 2A.2 — validação concluída localmente | Migração aditiva, integração SQL e migrate deploy/status/diff na base local autorizada. Commit `923acc6`. | Duas migrações concluídas, segundo deploy sem alterações e CHECKs confirmados; sem produção. |
-| 2A.3 — backend implementado para revisão | Cliente atualizado isoladamente, contratos estruturados, projeções legadas, snapshots e testes HTTP/persistência. Ver [fase-2a3-backend.md](fase-2a3-backend.md). | 62 testes locais e 11 HTTP/persistência aprovados, sem alterar frontend, converter legado ou implementar stock. |
+| 2A.3 — concluída localmente | Cliente atualizado isoladamente, contratos estruturados, projeções legadas, snapshots e testes HTTP/persistência. Commit `4c6a0b3`. Ver [fase-2a3-backend.md](fase-2a3-backend.md). | Revisão sem defeitos concretos; 62 testes locais aprovados. Integração repetida na 2A.4: 12 testes aprovados (inclui o percurso com payloads do frontend). |
+| 2A.4 — frontend implementado para revisão | Publicação/edição estruturadas, normalização textual de decimais, catálogo/detalhe e snapshots nas encomendas. Ver [fase-2a4-frontend.md](fase-2a4-frontend.md). | 19 testes frontend, 12 HTTP/persistência e build aprovados; 2 erros de lint preexistentes restantes. Verificação visual desktop/telemóvel pendente, sem aprovação visual. |
 | 2B | Descontar stock na aceitação, numa transação com atualização condicional e proteção contra concorrência e repetição. | Duas aceitações concorrentes não excedem stock; repetir a mesma aceitação desconta uma única vez; falha reverte toda a operação. |
 | 2C | Definir transições, registar eventos de estado e preservar encomendas quando produtos/contas são removidos. | Transições autorizadas e testadas; histórico mantém os dados da compra; remoções administrativas não apagam encomendas. |
 | 3A | Perfil e passagem de comprador para vendedor. Atualizar sessão/permissões de forma segura. | Comprador passa pelo fluxo definido antes de publicar; não pode atribuir admin; sessões refletem a alteração conforme política definida. |

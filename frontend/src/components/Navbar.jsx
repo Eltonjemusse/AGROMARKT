@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { canPublish } from '../utils/commercial';
 
 function Navbar() {
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ function Navbar() {
         className="menu-toggle"
         onClick={() => setMenuOpen(!menuOpen)}
         aria-label="Abrir menu"
+        aria-expanded={menuOpen}
       >
         ☰
       </button>
@@ -49,13 +51,12 @@ function Navbar() {
           </>
         ) : (
           <>
-            <Link to="/novo-produto" onClick={closeMenu}>
-              Novo Produto
-            </Link>
-
-            <Link to="/meus-produtos" onClick={closeMenu}>
-              Meus Produtos
-            </Link>
+            {canPublish(user) && (
+              <>
+                <Link to="/novo-produto" onClick={closeMenu}>Novo Produto</Link>
+                <Link to="/meus-produtos" onClick={closeMenu}>Meus Produtos</Link>
+              </>
+            )}
 
             <Link to="/dashboard" onClick={closeMenu}>
               Dashboard

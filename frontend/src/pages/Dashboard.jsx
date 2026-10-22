@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 
 import Navbar from '../components/Navbar';
+import OrderCommercial from '../components/OrderCommercial';
+import { canPublish } from '../utils/commercial';
 import api from '../services/api';
 
 function Dashboard() {
@@ -19,26 +21,17 @@ function Dashboard() {
   const [myOrders, setMyOrders] = useState([]);
   const [receivedOrders, setReceivedOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const carregarDados = async () => {
-    try {
-      const myOrdersResponse = await api.get('/orders/my');
-      setMyOrders(myOrdersResponse.data);
-
-      const receivedOrdersResponse = await api.get('/orders/received');
-      setReceivedOrders(receivedOrdersResponse.data);
-    } catch (error) {
-      console.log('ERRO DASHBOARD:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [error, setError] = useState('');
+  const [revision, setRevision] = useState(0);
+  const loggedIn = Boolean(user);
 
   const atualizarEstado = async (orderId, status) => {
     try {
       await api.put(`/orders/${orderId}/status`, { status });
       alert('Estado actualizado com sucesso!');
-      carregarDados();
+      setLoading(true);
+      setError('');
+      setRevision((value) => value + 1);
     } catch (error) {
       console.log(error);
       alert(error.response?.data?.message || 'Erro ao actualizar estado');
@@ -46,8 +39,16 @@ function Dashboard() {
   };
 
   useEffect(() => {
-    carregarDados();
-  }, []);
+    if (!loggedIn) return;
+    let active = true;
+    Promise.all([api.get('/orders/my'), api.get('/orders/received')])
+      .then(([purchases, sales]) => {
+        if (active) { setMyOrders(purchases.data); setReceivedOrders(sales.data); }
+      })
+      .catch((failure) => { if (active) setError(failure.response?.data?.message || 'Erro ao carregar as encomendas.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [loggedIn, revision]);
 
   if (!user) {
     return (
@@ -145,6 +146,7 @@ function Dashboard() {
             </div>
           </section>
 
+          {error && <p className="form-error" role="alert">{error}</p>}
           {loading ? (
             <p className="loading-text">A carregar dados...</p>
           ) : (
@@ -168,10 +170,7 @@ function Dashboard() {
                   <div className="orders-column">
                     {myOrders.map((order) => (
                       <div className="order-card" key={order.id}>
-                        <h3>{order.product?.nome}</h3>
-                        <p><strong>Quantidade:</strong> {order.quantidade}</p>
-                        <p><strong>Total:</strong> {order.total} MT</p>
-                        <p><strong>Estado:</strong> {order.status}</p>
+                        <OrderCommercial order={order} />
 
                         {order.seller && (
                           <>
@@ -188,7 +187,7 @@ function Dashboard() {
               <div>
                 <div className="section-heading">
                   <h2>Pedidos recebidos</h2>
-                  <Link to="/meus-produtos">Gerenciar estoque</Link>
+                  {canPublish(user) && <Link to="/meus-produtos">Meus produtos</Link>}
                 </div>
 
                 {receivedOrders.length === 0 ? (
@@ -204,10 +203,7 @@ function Dashboard() {
                   <div className="orders-column">
                     {receivedOrders.map((order) => (
                       <div className="order-card" key={order.id}>
-                        <h3>{order.product?.nome}</h3>
-                        <p><strong>Quantidade:</strong> {order.quantidade}</p>
-                        <p><strong>Total:</strong> {order.total} MT</p>
-                        <p><strong>Estado:</strong> {order.status}</p>
+                        <OrderCommercial order={order} />
 
                         {order.buyer && (
                           <>
@@ -217,6 +213,7 @@ function Dashboard() {
                         )}
 
                         <select
+                          aria-label={`Estado da encomenda ${order.id}`}
                           value={order.status}
                           onChange={(e) => atualizarEstado(order.id, e.target.value)}
                         >
@@ -234,6 +231,7 @@ function Dashboard() {
           )}
 
           <section className="quick-actions">
+            {canPublish(user) && <>
             <Link to="/novo-produto" className="quick-card">
               <span className="quick-icon green">
                 <Store size={22} />
@@ -247,6 +245,7 @@ function Dashboard() {
               </span>
               <p>Minha Lista</p>
             </Link>
+            </>}
 
             <Link to="/dashboard" className="quick-card">
               <span className="quick-icon red">

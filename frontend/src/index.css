@@ -816,6 +816,54 @@ th {
   }
 }
 
+/* Campos comerciais da fase 2A.4; revisão visual geral prevista na fase 4. */
+.commercial-form-card {
+  max-width: 680px;
+  margin: auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.commercial-form label {
+  display: block;
+  font-weight: 600;
+  margin-top: 12px;
+}
+
+.commercial-form input,
+.commercial-form select,
+.commercial-form textarea {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+}
+
+.commercial-fields {
+  min-width: 0;
+  margin: 16px 0;
+  border: 1px solid #9aac9d;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.commercial-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.commercial-grid label { margin: 0; }
+.commercial-form .field-help { font-size: 14px; font-weight: 400; line-height: 1.5; }
+.commercial-notice { padding: 12px; background: #fff6df; color: #604300; border-radius: 6px; }
+.form-error { padding: 12px; background: #fce8e8; color: #8c1b1b; border-radius: 6px; }
+.commercial-notice, .order-card, .product-card { overflow-wrap: anywhere; }
+.modal-bg .commercial-form-card { max-height: 90vh; overflow-y: auto; }
+
+@media (max-width: 600px) {
+  .commercial-grid { grid-template-columns: minmax(0, 1fr); }
+  .modal-bg { padding: 12px; box-sizing: border-box; }
+}
+
 @media (max-width: 380px) {
   .home-hero-text h1 {
     font-size: 32px;

@@ -1,6 +1,6 @@
 # Fase 2A.3 — integração estruturada no backend
 
-Implementação local para revisão no ramo `melhorias-agromarkt`. A fase 2A.2 foi guardada no commit local `923acc6` (`test: validar migracao comercial em PostgreSQL`), apenas com a migração, testes/helpers/fixtures e documentação correspondentes. Esta implementação 2A.3 fica sem commit. Sem push, deploy, alteração de frontend/.env, migração nova, conversão de legado ou stock.
+Implementação local no ramo `melhorias-agromarkt`. A fase 2A.2 foi guardada no commit local `923acc6` (`test: validar migracao comercial em PostgreSQL`), apenas com a migração, testes/helpers/fixtures e documentação correspondentes. A revisão 2A.3 não identificou regressões concretas de autorização, precisão, compatibilidade ou snapshots; os 13 ficheiros foram guardados no commit local `4c6a0b36c9da8a7d7d3e0a25125a3234a0ced07c` (`feat: integrar dados comerciais estruturados no backend`), incluindo o relatório sem credenciais. Sem push, deploy, alteração de .env, migração nova, conversão de legado ou stock. A adaptação posterior do frontend está descrita em [fase-2a4-frontend.md](fase-2a4-frontend.md).
 
 ## Cliente Prisma e isolamento
 
@@ -112,7 +112,7 @@ git diff --check
 1. Rever o diff e os contratos; confirmar o ambiente de destino e executar migrações apenas com autorização específica. A base local já tem as duas migrações; não executar reset ou o teste operacional que exige base vazia.
 2. Gerar o cliente atualizado isoladamente e só ativá-lo num ambiente com o esquema correspondente. A geração local foi concluída; não implica publicar aplicação.
 3. Atualizar o backend, mantendo os campos/contratos legados e ativando o uso dos campos novos apenas por clientes que os enviem. Testar catálogo, permissões, encomendas e serialização; não efetuar backfill.
-4. Numa entrega seguinte, atualizar frontend para unidade explícita, strings decimais, `step` e snapshots históricos. O frontend atual pode continuar os fluxos legados; alterações comerciais de produtos estruturados requerem o contrato novo e podem devolver HTTP 400 ao formulário antigo.
+4. Atualizar frontend para unidade explícita, strings decimais e snapshots históricos. A implementação local 2A.4 usa inputs textuais com inputMode decimal/numeric e validação de escala/unidade; ver o documento correspondente. O frontend antigo pode continuar os fluxos legados; alterações comerciais de produtos estruturados requerem o contrato novo e podem devolver HTTP 400 ao formulário antigo.
 5. Planear o corte do legado, limites comerciais e revisão de dados sem inventar unidades/histórico; depois implementar stock/concorrência na 2B e transições/preservação na 2C.
 
 Nenhum push ou deploy foi feito. As correções não chegaram à produção. Verificação das contas administrativas existentes e preparação operacional permanecem necessárias antes de qualquer publicação autorizada.

@@ -232,6 +232,69 @@ test('HTTP e persistência dos dados estruturados na base local autorizada', asy
       assert.equal(stored.totalDecimal.toFixed(2), '999999999999999998000000.00');
     });
 
+    await t.test('percurso 2A.4 com os payloads reais do frontend e persistência dos snapshots', async () => {
+      const { buildProductPayload, buildOrderPayload, productFormValues } = await import('../../frontend/src/utils/commercial.js');
+      // Registo e login reais, sem atribuir permissões através dos dados do pedido.
+      for (const [role, tipo] of [['registeredSeller', 'vendedor'], ['registeredBuyer', 'comprador']]) {
+        const credentials = { nome: `${prefix}_${role}`, email: `${prefix}.${role}@example.test`, senha: randomBytes(18).toString('hex'), tipo };
+        const registered = await http('POST', '/auth/register', null, credentials);
+        assert.equal(registered.status, 201, registered.data.message);
+        userIds.push(registered.data.user.id);
+        assert.equal(registered.data.user.tipo, tipo);
+        assert.equal(Object.hasOwn(registered.data.user, 'senha'), false);
+        const login = await http('POST', '/auth/login', null, { email: credentials.email, senha: credentials.senha });
+        assert.equal(login.status, 200, login.data.message);
+        accounts[role] = { ...login.data.user, token: login.data.token };
+        assert.equal(typeof login.data.token, 'string');
+      }
+      const form = { ...productFormValues(), nome: `${prefix}_frontend_original`, descricao: 'Percurso frontend sintético',
+        categoria: 'Outros', localizacao: 'Teste isolado', quantidadeDisponivel: '12,5', unidade: 'kg', precoUnitario: '0,20' };
+      assert.equal((await http('POST', '/products', 'registeredBuyer', buildProductPayload(form))).status, 403);
+      const created = await http('POST', '/products', 'registeredSeller', buildProductPayload(form));
+      assert.equal(created.status, 201, created.data.message);
+      const p = created.data.product;
+      const detail = await http('GET', `/products/${p.id}`, null);
+      assert.equal(detail.status, 200);
+      assert.equal(detail.data.quantidadeDisponivel, '12.500000');
+      assert.equal(detail.data.precoUnitario, '0.200000');
+      const catalog = await http('GET', '/products', null);
+      assert.ok(catalog.data.some((row) => row.id === p.id && row.unidade === 'kg'));
+      const purchase = await http('POST', '/orders', 'registeredBuyer', buildOrderPayload(detail.data, '0,125'));
+      assert.equal(purchase.status, 201, purchase.data.message);
+      const o = purchase.data.order;
+      const keys = ['quantidadeNumerica', 'unidadeSnapshot', 'precoUnitarioSnapshot', 'moedaSnapshot',
+        'totalDecimal', 'nomeProdutoSnapshot', 'versaoCalculo', 'dadosEstruturadosEstado'];
+      const snapshots = (row) => Object.fromEntries(keys.map((key) => [key, row[key]]));
+      assert.equal(o.totalDecimal, '0.03');
+      assert.equal(o.quantidadeNumerica, '0.125000');
+      const original = snapshots(o);
+      for (const [route, role] of [['/orders/my', 'registeredBuyer'], ['/orders/received', 'registeredSeller']]) {
+        const listed = await http('GET', route, role);
+        assert.equal(listed.status, 200);
+        assert.deepEqual(snapshots(listed.data.find((row) => row.id === o.id)), original);
+      }
+      const edit = { ...productFormValues(detail.data), nome: `${prefix}_frontend_editado`,
+        quantidadeDisponivel: '20,5', unidade: 'litro', precoUnitario: '1,25' };
+      const updated = await http('PUT', `/products/${p.id}`, 'registeredSeller', buildProductPayload(edit));
+      assert.equal(updated.status, 200, updated.data.message);
+      assert.equal(updated.data.product.unidade, 'litro');
+      assert.equal(updated.data.product.precoUnitario, '1.250000');
+      for (const [route, role] of [['/orders/my', 'registeredBuyer'], ['/orders/received', 'registeredSeller']]) {
+        const listed = await http('GET', route, role);
+        const row = listed.data.find((item) => item.id === o.id);
+        assert.deepEqual(snapshots(row), original);
+        assert.equal(row.product.nome, edit.nome);
+        assert.equal(row.product.unidade, 'litro');
+      }
+      const saved = await prisma.order.findUnique({ where: { id: o.id } });
+      assert.equal(saved.totalDecimal.toFixed(2), '0.03');
+      assert.equal(saved.precoUnitarioSnapshot.toFixed(6), '0.200000');
+      assert.equal(saved.quantidadeNumerica.toFixed(6), '0.125000');
+      assert.equal(saved.nomeProdutoSnapshot, form.nome);
+      assert.equal(saved.unidadeSnapshot, 'kg');
+      assert.equal(saved.status, 'pendente');
+    });
+
     await t.test('pendentes não reservam/comparam/descontam disponibilidade', async () => {
       const p = await product({ quantidadeDisponivel: '0' });
       for (let index = 0; index < 2; index++) {

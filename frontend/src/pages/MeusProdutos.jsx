@@ -1,198 +1,105 @@
 import { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
+import ProductFields from '../components/ProductFields';
+import ProductCommercial from '../components/ProductCommercial';
+import { buildProductPayload, canPublish, isStructuredProduct, productFormValues } from '../utils/commercial';
 import api from '../services/api';
 
 function MeusProdutos() {
   const [products, setProducts] = useState([]);
-  const [editingProduct, setEditingProduct] = useState(null);
+  const [editing, setEditing] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  const carregarProdutos = async () => {
-    try {
-      const response = await api.get('/products/my-products');
-      setProducts(response.data);
-    } catch (error) {
-      console.log(error);
-      alert('Erro ao carregar seus produtos');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const apagarProduto = async (id) => {
-    const confirmar = confirm('Tens certeza que queres apagar este produto?');
-
-    if (!confirmar) return;
-
-    try {
-      await api.delete(`/products/${id}`);
-      alert('Produto apagado com sucesso!');
-      carregarProdutos();
-    } catch (error) {
-      console.log(error);
-      alert(error.response?.data?.message || 'Erro ao apagar produto');
-    }
-  };
-
-  const iniciarEdicao = (product) => {
-    setEditingProduct({
-      ...product
-    });
-  };
-
-  const cancelarEdicao = () => {
-    setEditingProduct(null);
-  };
-
-  const handleChange = (e) => {
-    setEditingProduct({
-      ...editingProduct,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  const salvarEdicao = async (e) => {
-    e.preventDefault();
-
-    try {
-      await api.put(`/products/${editingProduct.id}`, {
-        nome: editingProduct.nome,
-        descricao: editingProduct.descricao,
-        preco: Number(editingProduct.preco),
-        quantidade: editingProduct.quantidade,
-        categoria: editingProduct.categoria,
-        imagem: editingProduct.imagem,
-        localizacao: editingProduct.localizacao
-      });
-
-      alert('Produto actualizado com sucesso!');
-      setEditingProduct(null);
-      carregarProdutos();
-    } catch (error) {
-      console.log(error);
-      alert(error.response?.data?.message || 'Erro ao actualizar produto');
-    }
-  };
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [editError, setEditError] = useState('');
+  const [revision, setRevision] = useState(0);
+  const user = JSON.parse(localStorage.getItem('user'));
+  const allowed = Boolean(localStorage.getItem('token')) && canPublish(user);
 
   useEffect(() => {
-    carregarProdutos();
-  }, []);
+    if (!allowed) return;
+    let active = true;
+    api.get('/products/my-products')
+      .then(({ data }) => { if (active) setProducts(data); })
+      .catch((failure) => { if (active) setError(failure.response?.data?.message || 'Erro ao carregar os produtos.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [allowed, revision]);
+
+  const refresh = () => { setLoading(true); setError(''); setRevision((value) => value + 1); };
+  const apagarProduto = async (id) => {
+    if (!confirm('Tens certeza que queres apagar este produto?')) return;
+    try {
+      await api.delete(`/products/${id}`);
+      refresh();
+    } catch (failure) {
+      setError(failure.response?.data?.message || 'Erro ao apagar produto.');
+    }
+  };
+  const iniciarEdicao = (product) => {
+    setEditError('');
+    setEditing({ id: product.id, legacy: !isStructuredProduct(product), form: productFormValues(product) });
+  };
+  const handleChange = (event) => setEditing({ ...editing, form: { ...editing.form, [event.target.name]: event.target.value } });
+  const salvarEdicao = async (event) => {
+    event.preventDefault();
+    setEditError('');
+    try {
+      const payload = buildProductPayload(editing.form, { allowEmptyCommercial: editing.legacy });
+      setSaving(true);
+      await api.put(`/products/${editing.id}`, payload);
+      setEditing(null);
+      refresh();
+    } catch (failure) {
+      setEditError(failure.response?.data?.message || failure.message || 'Erro ao guardar produto.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <>
       <Navbar />
-
-      <div className="container">
-        <h2>Meus Produtos</h2>
-
-        {loading ? (
-          <p>A carregar produtos...</p>
-        ) : products.length === 0 ? (
-          <p>Ainda não cadastraste produtos.</p>
-        ) : (
-          <div className="products-grid">
-            {products.map((product) => (
-              <div className="card" key={product.id}>
-                <h3>{product.nome}</h3>
-                <p>{product.descricao}</p>
-                <p><strong>Preço:</strong> {product.preco} MT</p>
-                <p><strong>Quantidade:</strong> {product.quantidade}</p>
-                <p><strong>Categoria:</strong> {product.categoria}</p>
-                <p><strong>Localização:</strong> {product.localizacao}</p>
-
-                <button onClick={() => iniciarEdicao(product)}>
-                  Editar
-                </button>
-
-                <button
-                  onClick={() => apagarProduto(product.id)}
-                  className="danger-btn"
-                >
-                  Apagar
-                </button>
+      <main className="container">
+        <h2>Meus produtos</h2>
+        {!allowed ? <p className="commercial-notice">Precisas de uma conta de vendedor para publicar produtos.</p> : (
+          <>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            {loading ? <p>A carregar produtos...</p> : products.length === 0 ? <p>Ainda não publicaste produtos.</p> : (
+              <div className="products-grid">
+                {products.map((product) => (
+                  <div className="card" key={product.id}>
+                    <h3>{product.nome}</h3>
+                    <p>{product.descricao}</p>
+                    <ProductCommercial product={product} />
+                    <p><strong>Categoria:</strong> {product.categoria}</p>
+                    <p><strong>Localização:</strong> {product.localizacao}</p>
+                    <button onClick={() => iniciarEdicao(product)}>Editar</button>
+                    <button onClick={() => apagarProduto(product.id)} className="danger-btn">Apagar</button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+            {editing && (
+              <div className="modal-bg">
+                <div className="card modal-card commercial-form-card" role="dialog" aria-modal="true" aria-labelledby="edit-product-title">
+                  <h3 id="edit-product-title">Editar produto</h3>
+                  {editing.legacy && (
+                    <p className="commercial-notice">Produto antigo: confirma manualmente quantidade, unidade e preço em MT.
+                      Não preenchemos estes valores a partir do texto antigo. Para editar só a descrição ou outros dados, deixa os três campos comerciais vazios.</p>
+                  )}
+                  <form onSubmit={salvarEdicao} className="commercial-form">
+                    <ProductFields form={editing.form} onChange={handleChange} commercialRequired={!editing.legacy} />
+                    {editError && <p className="form-error" role="alert">{editError}</p>}
+                    <button type="submit" disabled={saving}>{saving ? 'A guardar...' : 'Guardar alterações'}</button>
+                    <button type="button" onClick={() => setEditing(null)} disabled={saving}>Cancelar</button>
+                  </form>
+                </div>
+              </div>
+            )}
+          </>
         )}
-
-        {editingProduct && (
-          <div className="modal-bg">
-            <div className="card modal-card">
-              <h3>Editar Produto</h3>
-
-              <form onSubmit={salvarEdicao}>
-                <input
-                  name="nome"
-                  value={editingProduct.nome}
-                  onChange={handleChange}
-                  placeholder="Nome"
-                  required
-                />
-
-                <textarea
-                  name="descricao"
-                  value={editingProduct.descricao}
-                  onChange={handleChange}
-                  placeholder="Descrição"
-                  required
-                />
-
-                <input
-                  name="preco"
-                  type="number"
-                  value={editingProduct.preco}
-                  onChange={handleChange}
-                  placeholder="Preço"
-                  required
-                />
-
-                <input
-                  name="quantidade"
-                  value={editingProduct.quantidade}
-                  onChange={handleChange}
-                  placeholder="Quantidade"
-                  required
-                />
-
-                <select
-                  name="categoria"
-                  value={editingProduct.categoria}
-                  onChange={handleChange}
-                  required
-                >
-                  <option value="Hortaliças">Hortaliças</option>
-                  <option value="Frutas">Frutas</option>
-                  <option value="Cereais">Cereais</option>
-                  <option value="Tubérculos">Tubérculos</option>
-                  <option value="Leguminosas">Leguminosas</option>
-                  <option value="Outros">Outros</option>
-                </select>
-
-                <input
-                  name="imagem"
-                  value={editingProduct.imagem || ''}
-                  onChange={handleChange}
-                  placeholder="URL da imagem"
-                />
-
-                <input
-                  name="localizacao"
-                  value={editingProduct.localizacao}
-                  onChange={handleChange}
-                  placeholder="Localização"
-                  required
-                />
-
-                <button type="submit">Salvar</button>
-
-                <button type="button" onClick={cancelarEdicao}>
-                  Cancelar
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-      </div>
+      </main>
     </>
   );
 }
