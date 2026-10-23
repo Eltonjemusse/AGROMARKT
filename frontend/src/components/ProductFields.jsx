@@ -1,11 +1,11 @@
 import CommercialFields from './CommercialFields';
 
-function ProductFields({ form, onChange, commercialRequired = true }) {
+function ProductFields({ form, onChange, commercialRequired = true, errors = {} }) {
   return (
     <>
       <label>Nome do produto<input name="nome" value={form.nome} onChange={onChange} required /></label>
       <label>Descrição<textarea name="descricao" value={form.descricao} onChange={onChange} required /></label>
-      <CommercialFields form={form} onChange={onChange} required={commercialRequired} />
+      <CommercialFields form={form} onChange={onChange} required={commercialRequired} errors={errors} />
       <label>
         Categoria
         <select name="categoria" value={form.categoria} onChange={onChange} required>

@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { canPublish } from '../utils/commercial';
+import { useNotifications } from '../notifications/NotificationContext';
 
 function Navbar() {
+  const notify = useNotifications();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -12,6 +14,7 @@ function Navbar() {
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    notify.info('Sessão terminada.');
     navigate('/login');
   };
 

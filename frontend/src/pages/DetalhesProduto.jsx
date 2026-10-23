@@ -4,14 +4,19 @@ import Navbar from '../components/Navbar';
 import ProductCommercial from '../components/ProductCommercial';
 import { buildOrderPayload, isStructuredProduct } from '../utils/commercial';
 import api from '../services/api';
+import { useNotifications } from '../notifications/NotificationContext';
+import { reportOperationError } from '../utils/operationFeedback';
+import FieldError from '../components/FieldError';
 
 function DetalhesProduto() {
+  const notify = useNotifications();
   const { id } = useParams();
   const navigate = useNavigate();
   const [result, setResult] = useState(null);
   const [quantidade, setQuantidade] = useState('');
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderError, setOrderError] = useState('');
+  const [quantityError, setQuantityError] = useState('');
   const user = JSON.parse(localStorage.getItem('user'));
   const loggedIn = Boolean(localStorage.getItem('token'));
 
@@ -27,14 +32,17 @@ function DetalhesProduto() {
   const fazerPedido = async (event) => {
     event.preventDefault();
     setOrderError('');
-    if (!loggedIn) { navigate('/login'); return; }
+    setQuantityError('');
+    if (!loggedIn) { notify.info('Inicia sessão para fazer uma encomenda.'); navigate('/login'); return; }
     try {
       const payload = buildOrderPayload(product, quantidade);
       setOrderLoading(true);
       await api.post('/orders', payload);
+      notify.success('Encomenda enviada. Aguarda a confirmação do vendedor.');
       navigate('/dashboard');
     } catch (failure) {
-      setOrderError(failure.response?.data?.message || failure.message || 'Erro ao fazer encomenda.');
+      reportOperationError(failure, { notify, fallback: 'Não foi possível enviar a encomenda.', onFormError: setOrderError,
+        onFieldError: (_field, message) => setQuantityError(message) });
     } finally {
       setOrderLoading(false);
     }
@@ -70,8 +78,10 @@ function DetalhesProduto() {
                   <label>
                     Quantidade desejada ({product.unidade})
                     <input type="text" inputMode={['kg', 'litro'].includes(product.unidade) ? 'decimal' : 'numeric'}
-                      value={quantidade} onChange={(event) => setQuantidade(event.target.value)} required autoComplete="off" />
+                      aria-invalid={Boolean(quantityError)} aria-describedby={quantityError ? 'order-quantity-error' : undefined}
+                      value={quantidade} onChange={(event) => { setQuantidade(event.target.value); setQuantityError(''); }} required autoComplete="off" />
                   </label>
+                  <FieldError id="order-quantity-error" message={quantityError} />
                   <p className="field-help">{['kg', 'litro'].includes(product.unidade) ? 'Podes indicar frações, por exemplo 0,5. Até seis casas decimais.' : 'Indica uma quantidade inteira.'} Sem separadores de milhares.</p>
                   {orderError && <p className="form-error" role="alert">{orderError}</p>}
                   <button type="submit" disabled={orderLoading}>{orderLoading ? 'A enviar...' : 'Enviar encomenda'}</button>

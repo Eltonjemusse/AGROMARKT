@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { createServer } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -19,6 +19,9 @@ test('vistas comerciais respeitam permissões, unidades e dados históricos', as
     server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
   try {
     const load = async (path) => (await vite.ssrLoadModule(`/src/${path}.jsx`)).default;
+    const NotificationProvider = await load('notifications/NotificationProvider');
+    const NotificationViewport = await load('notifications/NotificationViewport');
+    const { createNotificationStore } = await import('../src/notifications/notificationStore.js');
     const Navbar = await load('components/Navbar');
     const NovoProduto = await load('pages/NovoProduto');
     const OrderCommercial = await load('components/OrderCommercial');
@@ -33,7 +36,8 @@ test('vistas comerciais respeitam permissões, unidades e dados históricos', as
     const NotFound = await load('pages/NotFound');
     const { productFormValues } = await import('../src/utils/commercial.js');
     const render = (Component, props = {}) => renderToStaticMarkup(
-      React.createElement(MemoryRouter, null, React.createElement(Component, props)));
+      React.createElement(NotificationProvider, null,
+        React.createElement(MemoryRouter, null, React.createElement(Component, props))));
 
     await t.test('comprador não recebe links nem formulário de publicação', () => {
       const navigation = render(Navbar);
@@ -145,6 +149,57 @@ test('vistas comerciais respeitam permissões, unidades e dados históricos', as
       const missing = render(NotFound);
       assert.match(missing, /Página não disponível/);
       assert.match(missing, /href="\/produtos"/);
+    });
+
+    await t.test('notificações distinguem texto/ícones, têm regiões live e fecho acessível', () => {
+      const store = createNotificationStore();
+      store.notify.success('Conta criada.');
+      store.notify.error('Operação recusada.');
+      store.notify.info('Sessão terminada.');
+      const html = renderToStaticMarkup(React.createElement(NotificationViewport, {
+        notifications: store.getSnapshot(), onDismiss: store.dismiss, onPause: store.pause, onResume: store.resume,
+      }));
+      for (const label of ['Sucesso', 'Erro', 'Informação']) {
+        assert.ok(html.includes(`<strong>${label}</strong>`));
+        assert.ok(html.includes(`aria-label="Fechar notificação: ${label}"`));
+      }
+      assert.match(html, /role="alert" aria-live="assertive"/);
+      assert.match(html, /role="status" aria-live="polite"/);
+      assert.match(html, /notification-icon/);
+      assert.match(html, /aria-hidden="true"/);
+      assert.match(html, /aria-describedby=/);
+      assert.doesNotMatch(html, /autofocus|aria-modal|tabindex="-1"/);
+    });
+
+    await t.test('o mesmo estado global apresenta os avisos antes e depois de mudar a rota', () => {
+      const store = createNotificationStore();
+      store.notify.success('Conta criada com sucesso. Já podes iniciar sessão.');
+      store.notify.error('Erro que precisa de ser fechado.');
+      const atRoute = (route) => renderToStaticMarkup(React.createElement(NotificationProvider, { store },
+        React.createElement(MemoryRouter, { initialEntries: [route] }, React.createElement(Routes, null,
+          React.createElement(Route, { path: '/cadastro', element: React.createElement(Cadastro) }),
+          React.createElement(Route, { path: '/login', element: React.createElement(Login) })))));
+      const before = atRoute('/cadastro');
+      const after = atRoute('/login');
+      assert.match(before, /Criar Conta/);
+      assert.match(after, /<h1>Entrar<\/h1>/);
+      for (const html of [before, after]) {
+        assert.match(html, /Conta criada com sucesso\. Já podes iniciar sessão\./);
+        assert.match(html, /Erro que precisa de ser fechado\./);
+      }
+      assert.equal(store.getSnapshot().length, 2);
+    });
+
+    await t.test('erros de quantidade/preço/unidade ficam ligados aos respetivos campos', () => {
+      const html = render(ProductFields, { form: productFormValues(), onChange: () => {},
+        errors: { quantidadeDisponivel: 'Quantidade inválida.', unidade: 'Selecione a unidade.', precoUnitario: 'Preço deve ser positivo.' } });
+      for (const suffix of ['quantity-error', 'unit-error', 'price-error']) {
+        const association = html.match(new RegExp(`aria-describedby="([^"]+${suffix})"`));
+        assert.ok(association, suffix);
+        assert.ok(html.includes(`id="${association[1]}" class="field-error" role="alert"`));
+      }
+      assert.match(html, /aria-invalid="true"/);
+      assert.match(html, /Preço deve ser positivo\./);
     });
   } finally {
     await vite.close();

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-label="Batata-reno">
+<title>Batata-reno</title>
+<desc id="desc">Ilustração de batata-reno para o catálogo de demonstração do AgroMarket.</desc>
+<defs>
+<linearGradient id="red" x2=".8" y2="1"><stop stop-color="#ee694a"/><stop offset="1" stop-color="#b92b25"/></linearGradient>
+<radialGradient id="onion"><stop stop-color="#eac47a"/><stop offset="1" stop-color="#bd8845"/></radialGradient>
+<radialGradient id="potato"><stop stop-color="#dabe83"/><stop offset="1" stop-color="#bd925a"/></radialGradient>
+<linearGradient id="carrot" x2="1" y2=".3"><stop stop-color="#f6af43"/><stop offset="1" stop-color="#d77a29"/></linearGradient>
+</defs>
+<rect width="640" height="420" fill="#f6f3e8"/><circle cx="322" cy="205" r="162" fill="#e9eddb"/><ellipse cx="320" cy="349" rx="198" ry="20" fill="#d3d8c4"/>
+<g fill="url(#potato)" stroke="#b08348" stroke-width="3"><path d="M190 139c-84 11-103 85-62 121 45 40 139 20 164-32 25-54-26-98-102-89"/><path d="M376 117c-63-16-115 35-94 89 20 52 117 65 150 23 30-38 5-96-56-112"/><path d="M317 232c-95-19-148 42-117 99 25 45 143 50 195-5 46-49-9-82-78-94"/></g><path d="m156 184q4-6 9 0" fill="none" stroke="#9c7144" stroke-width="3" stroke-linecap="round"/><path d="m203 160q4-6 9 0" fill="none" stroke="#9c7144" stroke-width="3" stroke-linecap="round"/><path d="m242 209q4-6 9 0" fill="none" stroke="#9c7144" stroke-width="3" stroke-linecap="round"/><path d="m165 235q4-6 9 0" fill="none" stroke="#9c7144" stroke-width="3" stroke-linecap="round"/><path d="m324 153q4-6 9 0" fill="none" stroke="#9c7144" stroke-width="3" stroke-linecap="round"/><path d="m388 166q4-6 9 0" fill="none" stroke="#9c7144" stroke-width="3" stroke-linecap="round"/><path d="m359 210q4-6 9 0" fill="none" stroke="#9c7144" stroke-width="3" stroke-linecap="round"/><path d="m245 285q4-6 9 0" fill="none" stroke="#9c7144" stroke-width="3" stroke-linecap="round"/><path d="m292 257q4-6 9 0" fill="none" stroke="#9c7144" stroke-width="3" stroke-linecap="round"/><path d="m347 300q4-6 9 0" fill="none" stroke="#9c7144" stroke-width="3" stroke-linecap="round"/><path d="m279 331q4-6 9 0" fill="none" stroke="#9c7144" stroke-width="3" stroke-linecap="round"/>
+<text x="24" y="397" fill="#596650" font-size="14" font-family="sans-serif">AgroMarket · Ilustração de demonstração</text>
+</svg>

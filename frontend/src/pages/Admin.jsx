@@ -3,8 +3,11 @@ import Navbar from '../components/Navbar';
 import api from '../services/api';
 import DeleteAction from '../components/DeleteAction';
 import { formatDecimal, isStructuredProduct } from '../utils/commercial';
+import { useNotifications } from '../notifications/NotificationContext';
+import { reportOperationError } from '../utils/operationFeedback';
 
 function Admin() {
+  const notify = useNotifications();
   const user = JSON.parse(localStorage.getItem('user'));
 
   const [stats, setStats] = useState({
@@ -29,11 +32,10 @@ function Admin() {
 
     try {
       await api.delete(`/admin/users/${id}`);
-      alert('Utilizador apagado com sucesso!');
+      notify.success('Utilizador apagado com sucesso.');
       carregarDados();
     } catch (error) {
-      console.log(error);
-      alert(error.response?.data?.message || 'Erro ao apagar utilizador');
+      reportOperationError(error, { notify, fallback: 'Não foi possível apagar o utilizador.' });
     }
   };
 
@@ -44,11 +46,10 @@ function Admin() {
 
     try {
       await api.delete(`/admin/products/${id}`);
-      alert('Produto apagado com sucesso!');
+      notify.success('Produto apagado com sucesso.');
       carregarDados();
     } catch (error) {
-      console.log(error);
-      alert(error.response?.data?.message || 'Erro ao apagar produto');
+      reportOperationError(error, { notify, fallback: 'Não foi possível apagar o produto.' });
     }
   };
 

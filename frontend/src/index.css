@@ -1912,3 +1912,71 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .order-actions button { width: 100%; }
   .register-footer-links { align-items: flex-start; }
 }
+
+.field-error { color: #8c1b1b; font-size: 14px; font-weight: 500; line-height: 1.5; margin: 4px 0 12px; }
+[aria-invalid="true"] { border-color: #a12323; }
+
+/* Global feedback stays above dialogs without a backdrop or focus changes. */
+.notification-stack {
+  position: fixed;
+  z-index: 1400;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(60dvh, 560px);
+  overflow-y: auto;
+  pointer-events: none;
+  scrollbar-width: thin;
+}
+.notification-list { list-style: none; padding: 0; margin: 0; }
+.notification {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 44px;
+  align-items: start;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 14px 10px 14px 16px;
+  border: 1px solid #cbd7ce;
+  border-left: 5px solid #155d3a;
+  border-radius: 12px;
+  background: #fff;
+  color: #183424;
+  box-shadow: 0 6px 20px #153c2526;
+  pointer-events: auto;
+  animation: notification-enter 160ms ease-out;
+}
+.notification--error { border-left-color: #a12323; color: #721c1c; }
+.notification--info { border-left-color: #245a82; color: #204b6a; }
+.notification-icon { margin-top: 5px; flex-shrink: 0; }
+.notification-content { min-width: 0; }
+.notification-content strong { font-size: 15px; }
+.notification-content p { margin: 4px 0 0; color: #293b30; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.notification-close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  min-height: 44px;
+  margin: -7px 0 0;
+  padding: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #33443a;
+}
+.notification-close:hover { background: #edf3ee; }
+@keyframes notification-enter {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 600px) {
+  .notification-stack {
+    top: auto;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-height: 45dvh;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .notification { animation: none; transition: none; }
+}

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-label="Cebola seca">
+<title>Cebola seca</title>
+<desc id="desc">Ilustração de cebola seca para o catálogo de demonstração do AgroMarket.</desc>
+<defs>
+<linearGradient id="red" x2=".8" y2="1"><stop stop-color="#ee694a"/><stop offset="1" stop-color="#b92b25"/></linearGradient>
+<radialGradient id="onion"><stop stop-color="#eac47a"/><stop offset="1" stop-color="#bd8845"/></radialGradient>
+<radialGradient id="potato"><stop stop-color="#dabe83"/><stop offset="1" stop-color="#bd925a"/></radialGradient>
+<linearGradient id="carrot" x2="1" y2=".3"><stop stop-color="#f6af43"/><stop offset="1" stop-color="#d77a29"/></linearGradient>
+</defs>
+<rect width="640" height="420" fill="#f6f3e8"/><circle cx="322" cy="205" r="162" fill="#e9eddb"/><ellipse cx="320" cy="349" rx="198" ry="20" fill="#d3d8c4"/>
+<path d="M281 143c-28 16-96 45-96 111 0 112 197 115 204 9 5-68-60-99-75-123l-10-61-19 1Z" fill="url(#onion)"/><path d="M290 151c-66 82-60 149 2 194m12-195c-18 88-17 151 5 195m4-193c59 69 69 138 7 187" fill="none" stroke="#b97b3d" stroke-width="5" opacity=".6"/><path d="m284 103 7-64 13 22 20-32-12 78" fill="#69804a"/><path d="m280 345-13 20m24-19-4 26m16-25 9 24m-1-27 21 20" stroke="#99754d" stroke-width="3"/><ellipse cx="432" cy="283" rx="57" ry="62" fill="#a7653b"/><ellipse cx="439" cy="281" rx="46" ry="54" fill="#f9efce"/><ellipse cx="441" cy="281" rx="34" ry="42" fill="none" stroke="#d9bc85" stroke-width="4"/><ellipse cx="441" cy="281" rx="20" ry="28" fill="none" stroke="#dfc89a" stroke-width="3"/>
+<text x="24" y="397" fill="#596650" font-size="14" font-family="sans-serif">AgroMarket · Ilustração de demonstração</text>
+</svg>

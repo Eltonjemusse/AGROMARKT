@@ -5,14 +5,18 @@ import ProductCommercial from '../components/ProductCommercial';
 import DeleteAction from '../components/DeleteAction';
 import { buildProductPayload, canPublish, isStructuredProduct, productFormValues } from '../utils/commercial';
 import api from '../services/api';
+import { useNotifications } from '../notifications/NotificationContext';
+import { reportOperationError } from '../utils/operationFeedback';
 
 function MeusProdutos() {
+  const notify = useNotifications();
   const [products, setProducts] = useState([]);
   const [editing, setEditing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [editError, setEditError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [revision, setRevision] = useState(0);
   const user = JSON.parse(localStorage.getItem('user'));
   const allowed = Boolean(localStorage.getItem('token')) && canPublish(user);
@@ -32,28 +36,33 @@ function MeusProdutos() {
     if (!confirm('Tens certeza que queres apagar este produto?')) return;
     try {
       await api.delete(`/products/${id}`);
+      notify.success('Produto apagado com sucesso.');
       refresh();
     } catch (failure) {
-      setError(failure.response?.data?.message || 'Erro ao apagar produto.');
+      reportOperationError(failure, { notify, fallback: 'Não foi possível apagar o produto.' });
     }
   };
   const iniciarEdicao = (product) => {
     setEditError('');
+    setFieldErrors({});
     setEditing({ id: product.id, legacy: !isStructuredProduct(product), originalQuantity: product.quantidadeDisponivel, form: productFormValues(product) });
   };
-  const handleChange = (event) => setEditing({ ...editing, form: { ...editing.form, [event.target.name]: event.target.value } });
+  const handleChange = (event) => { setEditing({ ...editing, form: { ...editing.form, [event.target.name]: event.target.value } }); setFieldErrors({}); };
   const salvarEdicao = async (event) => {
     event.preventDefault();
     setEditError('');
+    setFieldErrors({});
     try {
       const payload = buildProductPayload(editing.form, { allowEmptyCommercial: editing.legacy });
       if (!editing.legacy) payload.quantidadeDisponivelEsperada = editing.originalQuantity;
       setSaving(true);
       await api.put(`/products/${editing.id}`, payload);
+      notify.success('Produto atualizado com sucesso.');
       setEditing(null);
       refresh();
     } catch (failure) {
-      setEditError(failure.response?.data?.message || failure.message || 'Erro ao guardar produto.');
+      reportOperationError(failure, { notify, fallback: 'Não foi possível guardar o produto.', onFormError: setEditError,
+        onFieldError: (field, message) => setFieldErrors({ [field]: message }) });
     } finally {
       setSaving(false);
     }
@@ -91,7 +100,7 @@ function MeusProdutos() {
                       Não preenchemos estes valores a partir do texto antigo. Para editar só a descrição ou outros dados, deixa os três campos comerciais vazios.</p>
                   )}
                   <form onSubmit={salvarEdicao} className="commercial-form">
-                    <ProductFields form={editing.form} onChange={handleChange} commercialRequired={!editing.legacy} />
+                    <ProductFields form={editing.form} onChange={handleChange} commercialRequired={!editing.legacy} errors={fieldErrors} />
                     {editError && <p className="form-error" role="alert">{editError}</p>}
                     <button type="submit" disabled={saving}>{saving ? 'A guardar...' : 'Guardar alterações'}</button>
                     <button type="button" onClick={() => setEditing(null)} disabled={saving}>Cancelar</button>

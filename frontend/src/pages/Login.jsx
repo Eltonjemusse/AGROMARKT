@@ -5,8 +5,11 @@ import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 import UnavailableLink from '../components/UnavailableLink';
+import { useNotifications } from '../notifications/NotificationContext';
+import { reportOperationError } from '../utils/operationFeedback';
 
 function Login() {
+  const notify = useNotifications();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -42,10 +45,10 @@ function Login() {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
 
-      alert('Login realizado com sucesso!');
+      notify.success('Sessão iniciada com sucesso.');
       navigate('/dashboard');
     } catch (error) {
-      setError(error.response?.data?.message || 'Não foi possível iniciar sessão. Tenta novamente.');
+      reportOperationError(error, { notify, fallback: 'Não foi possível iniciar sessão. Tenta novamente.', onFormError: setError });
     } finally {
       setLoading(false);
     }

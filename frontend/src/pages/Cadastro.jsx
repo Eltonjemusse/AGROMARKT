@@ -5,8 +5,11 @@ import { Eye, EyeOff, ChevronDown } from 'lucide-react';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 import UnavailableLink from '../components/UnavailableLink';
+import { useNotifications } from '../notifications/NotificationContext';
+import { reportOperationError } from '../utils/operationFeedback';
 
 function Cadastro() {
+  const notify = useNotifications();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -43,10 +46,10 @@ function Cadastro() {
         tipo: form.tipo
       });
 
-      alert('Conta criada com sucesso!');
+      notify.success('Conta criada com sucesso. Já podes iniciar sessão.');
       navigate('/login');
     } catch (error) {
-      setError(error.response?.data?.message || 'Não foi possível criar a conta. Tenta novamente.');
+      reportOperationError(error, { notify, fallback: 'Não foi possível criar a conta. Tenta novamente.', onFormError: setError });
     } finally {
       setLoading(false);
     }

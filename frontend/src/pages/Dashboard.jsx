@@ -16,8 +16,11 @@ import OrderActions from '../components/OrderActions';
 import UnavailableLink from '../components/UnavailableLink';
 import { canPublish } from '../utils/commercial';
 import api from '../services/api';
+import { useNotifications } from '../notifications/NotificationContext';
+import { reportOperationError } from '../utils/operationFeedback';
 
 function Dashboard() {
+  const notify = useNotifications();
   const user = JSON.parse(localStorage.getItem('user'));
 
   const [myOrders, setMyOrders] = useState([]);
@@ -33,13 +36,12 @@ function Dashboard() {
     setUpdatingOrder(orderId);
     try {
       await api.put(`/orders/${orderId}/status`, { status });
-      alert('Estado actualizado com sucesso!');
+      notify.success('Estado da encomenda atualizado com sucesso.');
       setLoading(true);
       setError('');
       setRevision((value) => value + 1);
     } catch (error) {
-      console.log(error);
-      alert(error.response?.data?.message || 'Erro ao actualizar estado');
+      reportOperationError(error, { notify, fallback: 'Não foi possível atualizar o estado da encomenda.' });
     } finally {
       setUpdatingOrder(null);
     }

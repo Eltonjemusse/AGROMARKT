@@ -7,6 +7,10 @@ export const UNITS = Object.freeze([
 
 export const canPublish = (user) => ['vendedor', 'admin'].includes(user?.tipo);
 
+function validateField(field, validate) {
+  try { return validate(); } catch (error) { error.field = field; throw error; }
+}
+
 export function isStructuredProduct(product) {
   return product?.dadosEstruturadosEstado === 'validado' && product.moeda === 'MZN' &&
     UNITS.some(({ value }) => value === product.unidade) &&
@@ -59,13 +63,13 @@ export function buildProductPayload(form, { allowEmptyCommercial = false } = {})
   const empty = ['quantidadeDisponivel', 'unidade', 'precoUnitario'].every((key) => form[key].trim() === '');
   if (allowEmptyCommercial && empty) return payload;
   const unit = UNITS.find(({ value }) => value === form.unidade);
-  if (!unit) throw new Error('Selecione a unidade do produto. Não presuma o peso de um saco.');
+  if (!unit) throw Object.assign(new Error('Selecione a unidade do produto. Não presuma o peso de um saco.'), { field: 'unidade' });
   return {
     ...payload,
-    quantidadeDisponivel: normalizeDecimalInput(form.quantidadeDisponivel,
-      { label: 'Quantidade', integer: !unit.fractional, allowZero: true }),
+    quantidadeDisponivel: validateField('quantidadeDisponivel', () => normalizeDecimalInput(form.quantidadeDisponivel,
+      { label: 'Quantidade', integer: !unit.fractional, allowZero: true })),
     unidade: unit.value,
-    precoUnitario: normalizeDecimalInput(form.precoUnitario, { label: 'Preço por unidade' }),
+    precoUnitario: validateField('precoUnitario', () => normalizeDecimalInput(form.precoUnitario, { label: 'Preço por unidade' })),
     moeda: 'MZN',
   };
 }
@@ -74,8 +78,8 @@ export function buildOrderPayload(product, quantity) {
   if (!isStructuredProduct(product)) throw new Error('Este produto precisa de revisão pelo vendedor antes de receber novas encomendas.');
   return {
     productId: String(product.id),
-    quantidadeNumerica: normalizeDecimalInput(quantity,
-      { label: 'Quantidade', integer: !UNITS.find(({ value }) => value === product.unidade).fractional }),
+    quantidadeNumerica: validateField('quantidadeNumerica', () => normalizeDecimalInput(quantity,
+      { label: 'Quantidade', integer: !UNITS.find(({ value }) => value === product.unidade).fractional })),
   };
 }
 
